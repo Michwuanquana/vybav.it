@@ -99,13 +99,6 @@ export default function Home() {
       setIsSaving(false);
     }
   };
-      console.error("Analysis error:", error);
-      alert("Chyba při analýze místnosti. Zkuste to prosím znovu.");
-      setStep("configure");
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   if (step === "landing") {
     return (
@@ -290,10 +283,6 @@ export default function Home() {
             />
           )}
         </div>
-      </div>
-    </main>
-  );
-}
       </div>
     </main>
   );

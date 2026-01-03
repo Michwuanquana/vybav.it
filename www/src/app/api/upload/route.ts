@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { uploadImage } from "@/lib/storage";
 import { db } from "@/lib/db";
+import { checkImageSafety } from "@/lib/local-vision";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,8 +22,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Obrázek je příliš velký (max 10MB)" }, { status: 400 });
     }
 
-    const sessionId = nanoid();
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // 0. Lokální kontrola obsahu (nechceme lidi, kočárky atd.)
+    const safety = await checkImageSafety(buffer);
+    if (!safety.safe) {
+      return NextResponse.json({ error: safety.reason }, { status: 400 });
+    }
+
+    const sessionId = nanoid();
     const extension = file.name.split(".").pop() || "jpg";
     const key = `sessions/${sessionId}/original.${extension}`;
 
