@@ -283,6 +283,7 @@ export default function Home() {
             </div>
           ) : (
             <ResultsView 
+              sessionId={sessionId!}
               analysis={analysisResult} 
               products={recommendedProducts} 
               onBack={() => setStep("configure")} 

@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   CheckCircle2, 
   Info, 
@@ -9,7 +10,10 @@ import {
   Maximize2, 
   ShoppingCart, 
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles,
+  Loader2,
+  Download
 } from "lucide-react";
 
 interface Product {
@@ -52,12 +56,44 @@ interface AnalysisResult {
 }
 
 interface ResultsViewProps {
+  sessionId: string;
   analysis: AnalysisResult;
   products: Product[];
   onBack: () => void;
 }
 
-export function ResultsView({ analysis, products, onBack }: ResultsViewProps) {
+export function ResultsView({ sessionId, analysis, products, onBack }: ResultsViewProps) {
+  const [visualizingId, setVisualizingId] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleVisualize = async (product: Product) => {
+    setVisualizingId(product.id);
+    setIsGenerating(true);
+    setGeneratedImage(null);
+
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          productId: product.id,
+          userInstruction: `Place the ${product.name} naturally in the room, matching the perspective and lighting.`
+        }),
+      });
+
+      const data = await response.json();
+      if (data.imageUrl) {
+        setGeneratedImage(data.imageUrl);
+      }
+    } catch (error) {
+      console.error("Visualization error:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center justify-between">
@@ -183,14 +219,21 @@ export function ResultsView({ analysis, products, onBack }: ResultsViewProps) {
                       {product.price_czk.toLocaleString('cs-CZ')} Kč
                     </span>
                     <div className="flex gap-2">
-                      <Button size="icon" variant="outline" className="rounded-full border-sage/20 text-sage hover:bg-sage hover:text-white" asChild>
-                        <a href={product.affiliate_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="rounded-full border-sage/20 text-sage hover:bg-sage/5"
+                        onClick={() => handleVisualize(product)}
+                        disabled={isGenerating}
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Vizualizovat
                       </Button>
-                      <Button size="sm" className="bg-sage hover:bg-sage/90 text-white rounded-full px-4">
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Koupit
+                      <Button size="sm" className="bg-sage hover:bg-sage/90 text-white rounded-full px-4" asChild>
+                        <a href={product.affiliate_url} target="_blank" rel="noopener noreferrer">
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Koupit
+                        </a>
                       </Button>
                     </div>
                   </div>
@@ -207,6 +250,71 @@ export function ResultsView({ analysis, products, onBack }: ResultsViewProps) {
           )}
         </div>
       </div>
+
+      {/* Dialog pro zobrazení vizualizace */}
+      <Dialog open={!!visualizingId} onOpenChange={(open) => !open && setVisualizingId(null)}>
+        <DialogContent className="max-w-4xl bg-white/95 backdrop-blur-md border-none shadow-2xl rounded-3xl overflow-hidden p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="text-2xl font-heading font-bold text-charcoal flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-terracotta" />
+              AI Vizualizace v místnosti
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="p-6 space-y-6">
+            <div className="relative aspect-video rounded-2xl overflow-hidden bg-sand/20 border border-sage/10 shadow-inner">
+              {isGenerating ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-white/60 backdrop-blur-sm">
+                  <Loader2 className="w-12 h-12 text-sage animate-spin" />
+                  <div className="text-center">
+                    <p className="font-bold text-charcoal">Generuji fotorealistický návrh...</p>
+                    <p className="text-sm text-charcoal/50">Gemini 3 Flash právě vkládá nábytek do vaší fotky.</p>
+                  </div>
+                </div>
+              ) : generatedImage ? (
+                <img 
+                  src={generatedImage} 
+                  alt="AI Vizualizace" 
+                  className="w-full h-full object-contain animate-in fade-in zoom-in-95 duration-500"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-charcoal/30">
+                  Chyba při generování náhledu.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between bg-sage/5 p-4 rounded-2xl border border-sage/10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-white shadow-sm">
+                  <img 
+                    src={products.find(p => p.id === visualizingId)?.image_url} 
+                    alt="Produkt" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="font-bold text-charcoal">{products.find(p => p.id === visualizingId)?.name}</p>
+                  <p className="text-xs text-charcoal/50">Vizualizováno pomocí Gemini 3 Flash</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {generatedImage && (
+                  <Button variant="outline" className="rounded-full border-sage/20 text-sage" asChild>
+                    <a href={generatedImage} download="vybaveno-navrh.jpg">
+                      <Download className="w-4 h-4 mr-2" />
+                      Stáhnout
+                    </a>
+                  </Button>
+                )}
+                <Button className="bg-sage hover:bg-sage/90 text-white rounded-full px-6" onClick={() => setVisualizingId(null)}>
+                  Zavřít
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
