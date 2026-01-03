@@ -1,0 +1,252 @@
+[
+  {
+    "id": "STO-005",
+    "name": "Indický nábytek Kali Skříň",
+    "vendor": "Biano",
+    "dimensions_cm": "120 x 200 x 60",
+    "price_czk": 22495,
+    "image_url": "https://static.biano.cz/i/product/285-285/ab/35/b4/e1254ea51cb4332aa668aca1c48aab71a0f98e94-indicky-nabytek-skrin-kali-120x200x60-z-indickeho-masivu-palisandr-svetle-medova.webp",
+    "details": "Masivní palisandr, světle medová",
+    "source": 26
+  },
+  {
+    "id": "STO-006",
+    "name": "Indický nábytek Amba Skříň",
+    "vendor": "Biano",
+    "dimensions_cm": "120 x 200 x 60",
+    "price_czk": 23145,
+    "image_url": "https://static.biano.cz/i/product/285-285/d4/24/88/d09f7f3cf3cce6849a2768ab10b159f121d9ea85-indicky-nabytek-skrin-120x200x60-amba-z-indickeho-masivu-palisandr-super-natural.webp",
+    "details": "Super natural povrch, prémiový masiv",
+    "source": 26
+  },
+  {
+    "id": "STO-007",
+    "name": "Šatní skříň SS-90, dub sonoma",
+    "vendor": "Biano",
+    "dimensions_cm": "90 x 180 x 50",
+    "price_czk": 4779,
+    "image_url": "https://static.biano.cz/i/product/285-285/b5/a0/26/2a317328f83ea5ad9b4d788dbad0573247dcd1e5-satni-skrin-ss-90-dub-sonoma.webp",
+    "details": "Lamino, základní šatní skříň",
+    "source": 26
+  },
+  {
+    "id": "STO-008",
+    "name": "Skříň DERBY VI, bílá/dub",
+    "vendor": "Biano",
+    "dimensions_cm": "200 x 215 x 58",
+    "price_czk": 58659,
+    "image_url": "https://static.biano.cz/i/product/285-285/ce/cc/fe/287dc782ff13a34cc0c06d42cb23cb128b15ef44-satni-skrin-derby-vi-200-cm-bila-dub-sonoma.webp",
+    "details": "Posuvné dveře, velká kapacita",
+    "source": 26
+  },
+  {
+    "id": "STO-009",
+    "name": "WESTA I Skříň, čokoládová",
+    "vendor": "Biano",
+    "dimensions_cm": "150 x 200 x 58",
+    "price_czk": 6269,
+    "image_url": "https://static.biano.cz/i/product/285-285/e7/5d/91/8de2b9c6dda584baa35ec40401c92c11175161c5-velka-satni-skrin-westa-i-cokoladova-sirka-150-cm.webp",
+    "details": "Tmavý dekor, posuvné dveře",
+    "source": 26
+  },
+  {
+    "id": "STO-010",
+    "name": "EMI Rohová skříň, grafit",
+    "vendor": "Biano",
+    "dimensions_cm": "70 x 185 x 70",
+    "price_czk": 4983,
+    "image_url": "https://static.biano.cz/i/product/285-285/8a/a3/12/b56886ab5b763ec9bdf840f3892472e92a9e8846-rohova-satni-skrin-emi-se-zrcadlem-grafit.webp",
+    "details": "Rohové řešení, zrcadlo",
+    "source": 26
+  },
+  {
+    "id": "STO-014",
+    "name": "Komoda CL3/40, bílá",
+    "vendor": "Biano",
+    "dimensions_cm": "40 x 57 x 35",
+    "price_czk": 1219,
+    "image_url": "https://static.biano.cz/i/product/285-285/fa/a5/af/b52bcc5c09b2286c85cee69497adedec86122fae-komoda-malva-4-zasuvky-dub-sonoma.webp",
+    "details": "Noční/malá komoda, 3 zásuvky",
+    "source": 14
+  },
+  {
+    "id": "STO-015",
+    "name": "Komoda K140 6SZ, bílá",
+    "vendor": "Biano",
+    "dimensions_cm": "138 x 77 x 40",
+    "price_czk": 2999,
+    "image_url": "https://static.biano.cz/i/product/285-285/4e/da/06/9c2d89eca69144d093d8add51d9d053ea5090c12-komoda-k140-6sz-bila.webp",
+    "details": "Široká komoda, 6 zásuvek",
+    "source": 14
+  },
+  {
+    "id": "STO-016",
+    "name": "Komoda Malva 3D3S, antracit",
+    "vendor": "Biano",
+    "dimensions_cm": "120 x 97 x 40",
+    "price_czk": 3809,
+    "image_url": "https://static.biano.cz/i/product/285-285/3a/bb/d7/d6a5fa08ad64d0d18489af45b01eb6db4305b14c-komoda-malva-3d3s-antracit-dub-artisan.webp",
+    "details": "Moderní kombinace dekorů",
+    "source": 14
+  },
+  {
+    "id": "DIN-001",
+    "name": "Casaria Jídelní set PAUL, borovice",
+    "vendor": "Biano",
+    "dimensions_cm": "108 x 65",
+    "price_czk": 2430,
+    "image_url": "https://static.biano.cz/i/product/285-285/bf/29/8f/f3e6284ef535bac91ea8d61ba2e1507527aa6eeb-casaria-jidelni-souprava-paul-5-dilna-prirodni-hneda.webp",
+    "details": "1 stůl + 4 židle, masiv borovice",
+    "source": 29
+  },
+  {
+    "id": "DIN-002",
+    "name": "Jídelní set QUATRO, bílá",
+    "vendor": "Biano",
+    "dimensions_cm": "110 x 70",
+    "price_czk": 5372,
+    "image_url": "https://static.biano.cz/i/product/285-285/8d/23/50/d37aae5adedecb3b45971dfd656252ef76f4ee12-jidelni-sestava-quatro-stul-1100-x-700-mm-4-zidle.webp",
+    "details": "1 stůl + 4 židle, moderní lamino",
+    "source": 29
+  },
+  {
+    "id": "DIN-003",
+    "name": "Jídelní set STRAKOŠ 1+6, buk",
+    "vendor": "Biano",
+    "dimensions_cm": "160 x 80",
+    "price_czk": 13500,
+    "image_url": "https://static.biano.cz/i/product/285-285/3e/c5/99/39db19ca507481fbe2faec1e50ef3de3aa2a8108-jidelni-set-strakos-1-6-we-i-a-b-ii.webp",
+    "details": "1 stůl + 6 čalouněných židlí, masiv",
+    "source": 29
+  },
+  {
+    "id": "DIN-004",
+    "name": "Barový set Wellington Round",
+    "vendor": "Biano",
+    "dimensions_cm": "90 (⌀)",
+    "price_czk": 4605,
+    "image_url": "https://static.biano.cz/i/product/285-285/5b/a8/50/716b8a8e095c452d478e0a2c89c7adc86f999565-jidelni-barova-sada-wellington-round-stul-prumer-90-cm-4-zidle.webp",
+    "details": "Vysoký stůl + 4 barové židle",
+    "source": 29
+  },
+  {
+    "id": "DIN-005",
+    "name": "Jídelní set ISO 1+6",
+    "vendor": "Biano",
+    "dimensions_cm": "160 x 80",
+    "price_czk": 12941,
+    "image_url": "https://static.biano.cz/i/product/285-285/23/bb/7c/4efa93238a1c8290b9aeb97662efc4dad20d686d-jidelni-stul-160x80-cm-6-drevenych-zidli-iso.webp",
+    "details": "Stůl + 6 dřevěných židlí ISO",
+    "source": 29
+  },
+  {
+    "id": "DIN-019",
+    "name": "Panama Jídelní set 5ks, šedá",
+    "vendor": "Biano",
+    "dimensions_cm": "110 x 70 (Est)",
+    "price_czk": 7264,
+    "image_url": "https://static.biano.cz/i/product/285-285/85/6d/fc/33411ef2de2e328c0c39a1bee973793dbc68b926-jidelni-set-ze-4-kusu-panama-grey-borovicovy-masiv.webp",
+    "details": "1 stůl + 4 židle, šedé lakování",
+    "source": 29
+  },
+  {
+    "id": "DIN-020",
+    "name": "Euroseat Jídelní set, buk",
+    "vendor": "Biano",
+    "dimensions_cm": "193 x 120",
+    "price_czk": 17517,
+    "image_url": "https://static.biano.cz/i/product/285-285/09/0b/ad/c581e42fefa7964335d0c94d3f9313f5ba4262b2-euroseat-jidelni-set-1930-x-1200-oranzova-sedadla-deska-buk.webp",
+    "details": "Velkokapacitní stůl pro jídelny",
+    "source": 29
+  },
+  {
+    "id": "DEC-001",
+    "name": "100 svítících hvězdiček, samolepky",
+    "vendor": "Nalepte.cz",
+    "dimensions_cm": "2x2 cm",
+    "price_czk": 284,
+    "image_url": "https://static.biano.cz/i/product/285-285/71/38/34/5f80c4d9455b9038cd254e3682708b0169fb9768-100-sviticich-hvezdicek-samolepky-na-zed-2-x-2-cm.webp",
+    "details": "Dekorace na zeď, svítící ve tmě",
+    "source": 33
+  },
+  {
+    "id": "DEC-002",
+    "name": "Svítící měsíc a hvězdy, arch",
+    "vendor": "Nalepte.cz",
+    "dimensions_cm": "20x20 cm",
+    "price_czk": 284,
+    "image_url": "https://static.biano.cz/i/product/285-285/39/4d/27/48a91da724e32a1182a8cc2f08f8ba9bbc3e6e7d-svitici-hvezdicky-a-mesic-samolepky-na-zed-arch-20-x-20-cm.webp",
+    "details": "Arch samolepek, motiv vesmíru",
+    "source": 33
+  },
+  {
+    "id": "DEC-003",
+    "name": "Zrcadlo Naturel kulaté, černé",
+    "vendor": "SIKO",
+    "dimensions_cm": "60 cm (⌀)",
+    "price_czk": 899,
+    "image_url": "https://static.biano.cz/i/product/285-285/c0/56/10/be9b1e749cc31a51575b27ea71d00e27ef785728-zrcadlo-naturel-60-cm-cerna-matna-zlan60c.webp",
+    "details": "Kovový rám, zavěšení na laně",
+    "source": 33
+  },
+  {
+    "id": "DEC-004",
+    "name": "Zrcadlo SAT Feel LED, senzor",
+    "vendor": "SIKO",
+    "dimensions_cm": "50x70 cm",
+    "price_czk": 3999,
+    "image_url": "https://static.biano.cz/i/product/285-285/69/58/b7/7d8866c4900b5e7e14e56df16c46f4858bd95cc4-zrcadlo-se-senzorem-sat-feel-50x70-cm-bila-satzfeelobled5070.webp",
+    "details": "LED osvětlení, senzor, IP44",
+    "source": 33
+  },
+  {
+    "id": "DEC-005",
+    "name": "Zrcadlo SAT Feel Large LED",
+    "vendor": "SIKO",
+    "dimensions_cm": "60x100 cm",
+    "price_czk": 5599,
+    "image_url": "https://static.biano.cz/i/product/285-285/6e/1a/23/95e85b19554ad4ab2da2d91a4f46f1aae163fa02-zrcadlo-se-senzorem-sat-feel-60x100-cm-bila-satzfeelobled60100.webp",
+    "details": "Velké koupelnové zrcadlo, IP44",
+    "source": 33
+  },
+  {
+    "id": "DEC-006",
+    "name": "Pastelový dětský metr",
+    "vendor": "Nalepte.cz",
+    "dimensions_cm": "180 cm (V)",
+    "price_czk": 230,
+    "image_url": "https://static.biano.cz/i/product/285-285/54/71/7e/87560990ca832dfb8a0c2f1237ab8edbd701cfd4-pastelovy-detsky-metr-samolepka-na-zed-vyska-180-cm.webp",
+    "details": "Samolepka, měřítko růstu",
+    "source": 33
+  },
+  {
+    "id": "DEC-007",
+    "name": "Modrobílý traktor samolepka",
+    "vendor": "Nalepte.cz",
+    "dimensions_cm": "47x34 cm",
+    "price_czk": 191,
+    "image_url": "https://static.biano.cz/i/product/285-285/e4/00/cf/c76127341eab552a60ec0130f4bc211945fd2e62-modrobily-traktor-samolepka-na-zed-arch-47-x-34-cm.webp",
+    "details": "Dětský motiv, klasický styl",
+    "source": 33
+  },
+  {
+    "id": "DEC-008",
+    "name": "Vonná svíčka Slavic Library",
+    "vendor": "Bonami",
+    "dimensions_cm": "40h hoření",
+    "price_czk": 449,
+    "image_url": "https://static.biano.cz/i/product/285-285/0a/be/8c/e4e0d571c89d95d226d17989358b68c22a7e28a2-vonna-sojova-svicka-doba-horeni-40-h-slavic-edition-09-library-perfumed-prague.webp",
+    "details": "Sojový vosk, vůně knihovny",
+    "source": 33
+  },
+  {
+    "id": "DEC-020",
+    "name": "Pastelové puntíky samolepky",
+    "vendor": "Nalepte.cz",
+    "dimensions_cm": "4x4 cm",
+    "price_czk": 153,
+    "image_url": "https://static.biano.cz/i/product/285-285/47/5d/29/22c8f65e33a8da5eb4811e725c7235828e844ff2-pastelove-puntiky-samolepky-na-zed-50-ks-4x4-cm.webp",
+    "details": "Sada 50 ks, pastelové barvy",
+    "source": 33
+  }
+]

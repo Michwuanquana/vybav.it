@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generátor URL</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #output {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        #output.hidden {
+            display: none;
+        }
+        
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .output-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+        
+        .count {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .links-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .link-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .link-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .link-item a {
+            color: #667eea;
+            text-decoration: none;
+            word-break: break-all;
+            font-size: 14px;
+        }
+        
+        .link-item a:hover {
+            text-decoration: underline;
+        }
+        
+        .link-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        
+        .input-mode {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 8px;
+            background: #f0f0f0;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .input-fields {
+            display: none;
+        }
+        
+        .input-fields.active {
+            display: block;
+        }
+        
+        .triple-input {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .triple-input input {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Generátor URL odkazů</h1>
+        
+        <div class="form-group">
+            <label for="urlTemplate">URL šablona:</label>
+            <input type="text" id="urlTemplate" placeholder="https://www.ikea.com/cz/cs/search/?q=$1" value="https://www.ikea.com/cz/cs/search/?q=$1">
+            <div class="help-text">Použijte $1 jako placeholder pro hodnoty</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Způsob zadání hodnot:</label>
+            <div class="input-mode">
+                <button type="button" class="mode-btn active" data-mode="textarea">Textarea (čárky)</button>
+                <button type="button" class="mode-btn" data-mode="triple">3 pole</button>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div class="input-fields active" id="textarea-mode">
+                <label for="values">Hodnoty (oddělené čárkou):</label>
+                <textarea id="values" placeholder="stůl, židle, lampa"></textarea>
+                <div class="help-text">Zadejte hodnoty oddělené čárkou</div>
+            </div>
+            
+            <div class="input-fields" id="triple-mode">
+                <label>Hodnoty (3 pole):</label>
+                <div class="triple-input">
+                    <input type="text" id="value1" placeholder="Hodnota 1">
+                    <input type="text" id="value2" placeholder="Hodnota 2">
+                    <input type="text" id="value3" placeholder="Hodnota 3">
+                </div>
+                <div class="help-text">Zadejte až 3 hodnoty</div>
+            </div>
+        </div>
+        
+        <button onclick="generateLinks()">Generovat odkazy</button>
+        
+        <div id="output" class="hidden">
+            <div class="output-header">
+                <h2>Vygenerované odkazy</h2>
+                <span class="count" id="linkCount">0</span>
+            </div>
+            <div class="links-list" id="linksList"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Načtení parametrů z URL při startu
+        window.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const template = params.get('template') || params.get('url');
+            const values = params.get('values');
+            
+            if (template) {
+                document.getElementById('urlTemplate').value = template;
+            }
+            
+            if (values) {
+                document.getElementById('values').value = values;
+                // Automaticky vygenerovat odkazy pokud jsou obě hodnoty
+                if (template) {
+                    setTimeout(() => generateLinks(), 100);
+                }
+            }
+        });
+        
+        // Přepínání mezi režimy zadávání
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Odstranit active ze všech tlačítek a polí
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.input-fields').forEach(f => f.classList.remove('active'));
+                
+                // Aktivovat vybrané
+                this.classList.add('active');
+                const mode = this.dataset.mode;
+                document.getElementById(mode + '-mode').classList.add('active');
+            });
+        });
+        
+        function generateLinks() {
+            const urlTemplate = document.getElementById('urlTemplate').value.trim();
+            
+            if (!urlTemplate) {
+                alert('Zadejte URL šablonu!');
+                return;
+            }
+            
+            if (!urlTemplate.includes('$1')) {
+                alert('URL šablona musí obsahovat $1 placeholder!');
+                return;
+            }
+            
+            // Zjistit aktivní režim a získat hodnoty
+            let values = [];
+            const activeMode = document.querySelector('.mode-btn.active').dataset.mode;
+            
+            if (activeMode === 'textarea') {
+                const textarea = document.getElementById('values').value.trim();
+                if (!textarea) {
+                    alert('Zadejte hodnoty!');
+                    return;
+                }
+                values = textarea.split(',').map(v => v.trim()).filter(v => v);
+            } else {
+                // Triple mode
+                const v1 = document.getElementById('value1').value.trim();
+                const v2 = document.getElementById('value2').value.trim();
+                const v3 = document.getElementById('value3').value.trim();
+                
+                values = [v1, v2, v3].filter(v => v);
+                
+                if (values.length === 0) {
+                    alert('Zadejte alespoň jednu hodnotu!');
+                    return;
+                }
+            }
+            
+            // Generovat odkazy
+            const linksList = document.getElementById('linksList');
+            linksList.innerHTML = '';
+            
+            values.forEach((value, index) => {
+                const url = urlTemplate.replace('$1', encodeURIComponent(value));
+                
+                const linkItem = document.createElement('div');
+                linkItem.className = 'link-item';
+                
+                const label = document.createElement('div');
+                label.className = 'link-label';
+                label.textContent = `${index + 1}. ${value}`;
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.textContent = url;
+                
+                linkItem.appendChild(label);
+                linkItem.appendChild(link);
+                linksList.appendChild(linkItem);
+            });
+            
+            // Zobrazit výstup
+            document.getElementById('output').classList.remove('hidden');
+            document.getElementById('linkCount').textContent = values.length;
+            
+            // Scrollovat k výstupu
+            document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Enter v textarea nebo inputech pro generování
+        document.getElementById('values').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                generateLinks();
+            }
+        });
+        
+        [1, 2, 3].forEach(i => {
+            document.getElementById('value' + i).addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    generateLinks();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

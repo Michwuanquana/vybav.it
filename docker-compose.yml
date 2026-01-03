@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: vybaveno_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  dev-tools:
+    image: nginx:alpine
+    volumes:
+      - ./docs/tmp:/usr/share/nginx/html:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vybaveno-dev.rule=Host(`vybaveno.yrx.cz`)"
+      - "traefik.http.routers.vybaveno-dev.entrypoints=websecure"
+      - "traefik.http.routers.vybaveno-dev.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vybaveno-dev.loadbalancer.server.port=80"
+    networks:
+      - traefik_network
+      - default
+
+volumes:
+  postgres_data:
+
+networks:
+  traefik_network:
+    external: true
