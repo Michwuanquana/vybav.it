@@ -9,7 +9,11 @@ class DB {
   private db: sqlite3.Database;
 
   constructor() {
-    this.db = new sqlite3.Database(DB_PATH);
+    console.log("DB: Connecting to", DB_PATH);
+    this.db = new sqlite3.Database(DB_PATH, (err) => {
+      if (err) console.error("DB: Connection error", err);
+      else console.log("DB: Connected successfully");
+    });
   }
 
   async run(sql: string, params: any[] = []) {
@@ -28,4 +32,7 @@ class DB {
   }
 }
 
-export const db = new DB();
+// Singleton instance pro Next.js dev mode
+const globalForDb = global as unknown as { db: DB };
+export const db = globalForDb.db || new DB();
+if (process.env.NODE_ENV !== 'production') globalForDb.db = db;

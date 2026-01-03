@@ -8,6 +8,7 @@ if (!process.env.GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+// Používáme nejnovější Gemini 3 Flash (Preview) dostupný k lednu 2026
 export const geminiFlash = genAI.getGenerativeModel({
   model: "gemini-3-flash-preview",
   generationConfig: {

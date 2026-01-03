@@ -3,8 +3,13 @@ import { ParsedProduct } from "../../../../scripts/types";
 export function buildInpaintingPrompt(
   analysis: any,
   product: ParsedProduct,
-  userInstruction: string = "placed naturally in the room"
+  userInstruction: string = "placed naturally in the room",
+  coordinates?: { x: number; y: number }
 ) {
+  const placementText = coordinates 
+    ? `Place the object exactly at the normalized coordinates [y: ${coordinates.y}, x: ${coordinates.x}] (on a 0-1000 scale).`
+    : userInstruction;
+
   return `
     ACT AS: Expert Interior Visualizer & Photo Editor.
     TASK: Edit the provided room image to include a new piece of furniture.
@@ -20,7 +25,7 @@ export function buildInpaintingPrompt(
     Price: ${product.price_czk} CZK
     
     --- PLACEMENT INSTRUCTION ---
-    ${userInstruction}
+    ${placementText}
     
     --- CRITICAL CONSTRAINTS ---
     1. PRESERVE the original room architecture, windows, and perspective EXACTLY.

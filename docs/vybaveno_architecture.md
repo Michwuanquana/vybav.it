@@ -33,6 +33,7 @@ Aplikace se posouvá od manuálního editoru k **AI-first řešení** využívaj
 | UI/UX | **Tailwind CSS + Shadcn/ui** | Rychlý, čistý design, mobile-first |
 | State | **Zustand** | Jednoduchý state management pro výběr produktů |
 | AI Core | **Google Gemini 3 Flash** | SOTA model, levný, rychlý, nativní multimodalita |
+| Local Vision | **Transformers.js (DETR)** | Lokální kontrola obsahu (bezpečnost, soukromí) |
 | Storage | **Local File System** | Rychlé, bezplatné, plná kontrola (optimalizace přes `sharp`) |
 | Database | **SQLite** | Jednoduchost, přenositelnost, nulová latence pro lokální vývoj |
 | Hosting | **Vercel / Self-host** | Flexibilní nasazení |
@@ -95,6 +96,11 @@ Pro maximalizaci rychlosti a minimalizaci nákladů na AI API využíváme násl
 3.  **AI Result Caching:**
     *   Před voláním Gemini API systém zkontroluje v SQLite tabulce `sessions`, zda již existuje úspěšná analýza pro daný hash obrázku.
     *   Pokud ano, analýza se přeskočí a použijí se uložená data. To šetří peníze i čas (latence API).
+
+4.  **Local Safety Layer (Transformers.js):**
+    *   Před odesláním do cloudu (Gemini) proběhne lokální detekce objektů.
+    *   Model `detr-resnet-50` identifikuje osoby, zvířata nebo nevhodné objekty.
+    *   Zajišťuje soukromí uživatele a čistotu vstupních dat pro design.
 
 ---
 

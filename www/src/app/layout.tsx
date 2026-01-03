@@ -14,7 +14,7 @@ const figtree = Figtree({
 
 export const metadata: Metadata = {
   title: "Vybaveno – Váš pokoj hotový bez práce",
-  description: "Nahrajte fotku pokoje a AI vám navrhne kompletní zařízení včetně montáže. Od chaosu ke klidu.",
+  description: "Nahrajte fotku pokoje a náš systém vám navrhne kompletní zařízení včetně montáže. Od chaosu ke klidu.",
 };
 
 export default function RootLayout({

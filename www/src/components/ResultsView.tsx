@@ -15,6 +15,7 @@ import {
   Loader2,
   Download
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -57,41 +58,99 @@ interface AnalysisResult {
 
 interface ResultsViewProps {
   sessionId: string;
+  roomImageUrl: string;
   analysis: AnalysisResult;
   products: Product[];
   onBack: () => void;
 }
 
-export function ResultsView({ sessionId, analysis, products, onBack }: ResultsViewProps) {
+export function ResultsView({ sessionId, roomImageUrl, analysis, products, onBack }: ResultsViewProps) {
   const [visualizingId, setVisualizingId] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string>("");
+  const [placement, setPlacement] = useState<{ x: number; y: number } | null>(null);
 
-  const handleVisualize = async (product: Product) => {
-    setVisualizingId(product.id);
+  const handleVisualize = async (product: Product, coords?: { x: number; y: number }) => {
     setIsGenerating(true);
     setGeneratedImage(null);
+    setGenerationStatus("Odesílám data ke zpracování...");
 
     try {
+      console.log("Frontend: Starting visualization for", product.id);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      // Simulace fází pro lepší UX
+      const statusInterval = setInterval(() => {
+        setGenerationStatus(prev => {
+          if (prev.includes("Odesílám")) return "Systém analyzuje scénu...";
+          if (prev.includes("analyzuje")) return "Vkládám nábytek do prostoru...";
+          if (prev.includes("Vkládám")) return "Ladím stíny a osvětlení...";
+          return prev;
+        });
+      }, 5000);
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           sessionId,
           productId: product.id,
-          userInstruction: `Place the ${product.name} naturally in the room, matching the perspective and lighting.`
+          coordinates: coords,
+          userInstruction: coords 
+            ? `Place the ${product.name} exactly at the marked location [y:${coords.y}, x:${coords.x}].`
+            : `Place the ${product.name} naturally in the room.`
         }),
       });
+
+      clearInterval(statusInterval);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server error");
+      }
 
       const data = await response.json();
       if (data.imageUrl) {
         setGeneratedImage(data.imageUrl);
+      } else {
+        throw new Error("No image URL returned");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Visualization error:", error);
+      alert(error.name === 'AbortError' 
+        ? "Generování trvá příliš dlouho. Zkuste to prosím znovu nebo s jiným produktem." 
+        : `Chyba při generování: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isGenerating || generatedImage) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000);
+    
+    setPlacement({ x, y });
+  };
+
+  const startGeneration = () => {
+    const product = products.find(p => p.id === visualizingId);
+    if (product && placement) {
+      handleVisualize(product, placement);
+    }
+  };
+
+  const resetVisualization = () => {
+    setVisualizingId(null);
+    setGeneratedImage(null);
+    setPlacement(null);
+    setIsGenerating(false);
   };
 
   return (
@@ -102,7 +161,7 @@ export function ResultsView({ sessionId, analysis, products, onBack }: ResultsVi
           Zpět na nastavení
         </Button>
         <Badge variant="outline" className="bg-sage/5 text-sage border-sage/20 px-4 py-1">
-          AI Analýza dokončena
+          Analýza prostoru dokončena
         </Badge>
       </div>
 
@@ -223,7 +282,11 @@ export function ResultsView({ sessionId, analysis, products, onBack }: ResultsVi
                         size="sm" 
                         variant="outline" 
                         className="rounded-full border-sage/20 text-sage hover:bg-sage/5"
-                        onClick={() => handleVisualize(product)}
+                        onClick={() => {
+                          setVisualizingId(product.id);
+                          setGeneratedImage(null);
+                          setPlacement(null);
+                        }}
                         disabled={isGenerating}
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
@@ -252,35 +315,60 @@ export function ResultsView({ sessionId, analysis, products, onBack }: ResultsVi
       </div>
 
       {/* Dialog pro zobrazení vizualizace */}
-      <Dialog open={!!visualizingId} onOpenChange={(open) => !open && setVisualizingId(null)}>
+      <Dialog open={!!visualizingId} onOpenChange={(open) => !open && resetVisualization()}>
         <DialogContent className="max-w-4xl bg-white/95 backdrop-blur-md border-none shadow-2xl rounded-3xl overflow-hidden p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="text-2xl font-heading font-bold text-charcoal flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-terracotta" />
-              AI Vizualizace v místnosti
+              {generatedImage ? "Váš návrh je připraven" : "Umístěte nábytek v místnosti"}
             </DialogTitle>
           </DialogHeader>
           
           <div className="p-6 space-y-6">
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-sand/20 border border-sage/10 shadow-inner">
+            <div 
+              className={cn(
+                "relative aspect-video rounded-2xl overflow-hidden bg-sand/20 border border-sage/10 shadow-inner",
+                !generatedImage && !isGenerating && "cursor-crosshair"
+              )}
+              onClick={handleImageClick}
+            >
               {isGenerating ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-white/60 backdrop-blur-sm">
+                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-white/60 backdrop-blur-sm z-20">
                   <Loader2 className="w-12 h-12 text-sage animate-spin" />
                   <div className="text-center">
-                    <p className="font-bold text-charcoal">Generuji fotorealistický návrh...</p>
-                    <p className="text-sm text-charcoal/50">Gemini 3 Flash právě vkládá nábytek do vaší fotky.</p>
+                    <p className="font-bold text-charcoal">{generationStatus}</p>
+                    <p className="text-sm text-charcoal/50">Náš systém právě vkládá nábytek do vaší fotky.</p>
                   </div>
                 </div>
               ) : generatedImage ? (
                 <img 
                   src={generatedImage} 
-                  alt="AI Vizualizace" 
+                  alt="Vizualizace návrhu" 
                   className="w-full h-full object-contain animate-in fade-in zoom-in-95 duration-500"
                 />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-charcoal/30">
-                  Chyba při generování náhledu.
-                </div>
+                <>
+                  <img 
+                    src={roomImageUrl} 
+                    alt="Původní místnost" 
+                    className="w-full h-full object-cover opacity-80"
+                  />
+                  <div className="absolute inset-0 bg-black/10 flex items-center justify-center pointer-events-none">
+                    {!placement && (
+                      <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg text-sage font-medium animate-bounce">
+                        Klikněte kamkoliv pro umístění
+                      </div>
+                    )}
+                  </div>
+                  {placement && (
+                    <div 
+                      className="absolute w-8 h-8 -ml-4 -mt-4 bg-terracotta rounded-full border-4 border-white shadow-xl animate-pulse flex items-center justify-center"
+                      style={{ left: `${placement.x / 10}%`, top: `${placement.y / 10}%` }}
+                    >
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -295,10 +383,21 @@ export function ResultsView({ sessionId, analysis, products, onBack }: ResultsVi
                 </div>
                 <div>
                   <p className="font-bold text-charcoal">{products.find(p => p.id === visualizingId)?.name}</p>
-                  <p className="text-xs text-charcoal/50">Vizualizováno pomocí Gemini 3 Flash</p>
+                  <p className="text-xs text-charcoal/50">
+                    {generatedImage ? "Vizualizováno inteligentním systémem" : "Vyberte místo na fotce"}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
+                {!generatedImage && !isGenerating && (
+                  <Button 
+                    className="bg-terracotta hover:bg-terracotta/90 text-white rounded-full px-8 shadow-lg shadow-terracotta/20"
+                    onClick={startGeneration}
+                    disabled={!placement}
+                  >
+                    Potvrdit umístění
+                  </Button>
+                )}
                 {generatedImage && (
                   <Button variant="outline" className="rounded-full border-sage/20 text-sage" asChild>
                     <a href={generatedImage} download="vybaveno-navrh.jpg">
@@ -307,7 +406,7 @@ export function ResultsView({ sessionId, analysis, products, onBack }: ResultsVi
                     </a>
                   </Button>
                 )}
-                <Button className="bg-sage hover:bg-sage/90 text-white rounded-full px-6" onClick={() => setVisualizingId(null)}>
+                <Button variant="ghost" className="rounded-full px-6" onClick={resetVisualization}>
                   Zavřít
                 </Button>
               </div>

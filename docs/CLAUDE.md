@@ -21,6 +21,7 @@
 | Frontend | Next.js 14 (App Router) + Tailwind + Shadcn/ui |
 | State | Zustand |
 | AI Core | **Gemini 3 Flash** (`gemini-3-flash-preview`) |
+| Local Vision | **Transformers.js** (Object Detection) |
 | Storage | Local File System (`www/public/uploads`) |
 | Database | SQLite (Local `vybaveno.db`) |
 | Hosting | Vercel |
@@ -48,6 +49,10 @@
 |--------|------|
 | `implementation.md` | Roadmapa s úkoly a checklistem |
 | `progress.md` | Zápisy z každého vývojového runu |
+| `www/src/lib/storage.ts` | Lokální úložiště s optimalizací a deduplikací |
+| `www/src/lib/local-vision.ts` | Lokální AI kontrola obsahu (Transformers.js) |
+| `www/src/app/api/generate/route.ts` | AI Inpainting endpoint (Gemini 3 Flash) |
+| `www/src/components/ResultsView.tsx` | UI pro zobrazení analýzy a vizualizací |
 | `vybaveno_architecture.md` | Technická architektura a datové typy |
 | `gemini_flash_implementation_instructions.md` | Gemini 3 Flash konfigurace a prompty |
 

@@ -64,36 +64,51 @@ export default function Home() {
   };
 
   const handleContinue = async () => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.error("handleContinue: No sessionId found");
+      return;
+    }
     
+    console.log("handleContinue: Starting analysis for session", sessionId);
     setIsSaving(true);
     setStep("analyzing");
     
     try {
-      // 1. Spuštění AI analýzy
+      // 1. Spuštění analýzy
+      console.log("handleContinue: Fetching /api/analyze");
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
       });
 
-      if (!analyzeRes.ok) throw new Error("Analýza selhala");
+      if (!analyzeRes.ok) {
+        const errorText = await analyzeRes.text();
+        console.error("handleContinue: Analysis failed", errorText);
+        throw new Error(`Analýza selhala: ${errorText}`);
+      }
+      
       const analysis = await analyzeRes.json();
+      console.log("handleContinue: Analysis result received", analysis);
       setAnalysisResult(analysis);
 
       // 2. Získání doporučených produktů na základě analýzy
       const style = analysis.detected_style;
+      console.log("handleContinue: Fetching recommendations for style", style);
       const recommendRes = await fetch(`/api/products/recommend?style=${style}&limit=6&max_price=${budget}`);
       
       if (recommendRes.ok) {
         const products = await recommendRes.json();
+        console.log("handleContinue: Recommendations received", products.length, "items");
         setRecommendedProducts(products);
+      } else {
+        console.warn("handleContinue: Recommendations fetch failed");
       }
       
       setStep("results");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis error:", error);
-      alert("Chyba při analýze místnosti. Zkuste to prosím znovu.");
+      alert(`Chyba při analýze místnosti: ${error.message || "Neznámá chyba"}`);
       setStep("configure");
     } finally {
       setIsSaving(false);
@@ -122,7 +137,7 @@ export default function Home() {
         </div>
         
         <footer className="absolute bottom-8 text-sage/60 text-sm">
-          © 2026 Vybaveno.cz – AI-powered interior staging
+          © 2026 Vybaveno.cz – Inteligentní návrhy interiérů
         </footer>
       </main>
     );
@@ -167,7 +182,7 @@ export default function Home() {
             <div className="space-y-10">
               <div className="text-center space-y-2">
                 <h1 className="text-3xl font-heading font-bold text-charcoal">Přizpůsobte si návrh</h1>
-                <p className="text-charcoal/60">Pomozte AI pochopit vaše preference.</p>
+                <p className="text-charcoal/60">Pomozte nám pochopit vaše preference.</p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-10">
@@ -232,7 +247,7 @@ export default function Home() {
                       Co se bude dít dál?
                     </h4>
                     <p className="text-sm text-charcoal/70 leading-relaxed">
-                      Naše AI analyzuje geometrii vašeho pokoje, světelné podmínky a architektonické prvky. 
+                      Náš systém analyzuje geometrii vašeho pokoje, světelné podmínky a architektonické prvky. 
                       Následně vybere nejvhodnější kousky z katalogu IKEA a vytvoří fotorealistický návrh.
                     </p>
                   </div>
@@ -247,7 +262,7 @@ export default function Home() {
                     ) : isAlreadyAnalyzed ? (
                       "Zobrazit hotový návrh"
                     ) : (
-                      "Spustit AI analýzu"
+                      "Vytvořit návrh"
                     )}
                   </Button>
                   {!roomType && (
@@ -265,7 +280,7 @@ export default function Home() {
                 <BrainCircuit className="w-20 h-20 text-sage relative animate-bounce" />
               </div>
               <div className="space-y-3">
-                <h2 className="text-2xl font-heading font-bold text-charcoal">AI právě přemýšlí...</h2>
+                <h2 className="text-2xl font-heading font-bold text-charcoal">Vybaveno právě navrhuje...</h2>
                 <p className="text-charcoal/60 max-w-md mx-auto">
                   Analyzujeme vaši fotografii, detekujeme styl a vybíráme nejlepší kousky nábytku, které se k vám hodí.
                 </p>
@@ -277,6 +292,7 @@ export default function Home() {
           ) : (
             <ResultsView 
               sessionId={sessionId!}
+              roomImageUrl={uploadedImage!}
               analysis={analysisResult} 
               products={recommendedProducts} 
               onBack={() => setStep("configure")} 

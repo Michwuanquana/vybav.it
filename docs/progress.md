@@ -16,19 +16,21 @@ Zápisy z každého vývojového runu. Nejnovější nahoře.
 - [x] Implementace `/api/analyze` s využitím Gemini 3 Flash (včetně promptu pro analýzu místnosti)
 - [x] Implementace `/api/products/recommend` pro filtrování produktů podle stylu, materiálu a ceny
 - [x] **Fáze 4: UI pro zobrazení výsledků analýzy a doporučených produktů**
+- [x] **Fáze 5: Integrace AI Inpaintingu pro vizualizaci nábytku v místnosti**
+- [x] **Lokální bezpečnostní vrstva:** Implementace `Transformers.js` pro detekci osob a nežádoucích objektů před odesláním do AI
 - [x] **Lokální úložiště:** Nahrazení Cloudflare R2 lokálním souborovým systémem (`/public/uploads`)
 - [x] **Optimalizace obrázků:** Integrace knihovny `sharp` pro automatickou kompresi a změnu velikosti
 - [x] **Deduplikace & Caching:** Implementace SHA-256 hashování pro zamezení duplicitních uploadů a "AI Cache" pro znovupoužití výsledků analýzy u stejných fotek
 
 ### Technické detaily
 - **Databáze:** SQLite v kořeni projektu, sdílená mezi skripty a Next.js aplikací
-- **AI:** Gemini 3 Flash (`gemini-3-flash-preview`) pro multimodální analýzu fotek
+- **AI:** Gemini 3 Flash (`gemini-3-flash-preview`) pro multimodální analýzu fotek a inpainting
 - **Doporučování:** 3-vrstvý algoritmus (Styl -> Materiál/Barva -> Rozměry)
-- **Storage:** Lokální FS s hash-based naming (`sha256`), optimalizace přes `sharp` (max 2000px, 85% quality)
+- **Inpainting:** "Visual Anchoring" strategie s využitím multimodálního vstupu Gemini 3 Flash
 
 ### Další kroky
-- [ ] Fáze 5: Integrace AI Inpaintingu pro vizualizaci nábytku v místnosti
 - [ ] Vytvoření "Studio" editoru pro manuální úpravy designu
+- [ ] Implementace exportu návrhu do PDF/Emailu
 
 ---
 
