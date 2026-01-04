@@ -24,30 +24,36 @@
 | Local Vision | **Transformers.js** (Object Detection) |
 | Storage | Local File System (`www/public/uploads`) |
 | Database | SQLite (Local `vybaveno.db`) |
-| Hosting | Vercel |
+| Hosting | Local Docker + Traefik (`vybaveno.yrx.cz`) |
 
 ## Struktura projektu
 
 ```
 /home/vybaveno/project/
 ├── www/                          ⏳ Next.js aplikace
-├── backend/                      ⏳ (rezerva pro budoucí API)
 ├── docs/
-│   ├── CLAUDE.md                 📝 Tento soubor
-│   ├── progress.md               📈 Log postupu prací
-│   ├── implementation.md         📋 Implementační roadmapa
-│   ├── vybaveno_architecture.md  🏗️ Architektura aplikace
-│   ├── gemini_flash_implementation_instructions.md  🤖 Gemini setup
-│   ├── brand_identita.md         🎨 Brand guidelines
-│   └── analyzy/                  📊 Strategické dokumenty
-└── docker-compose.yml            ⏳ Lokální prostředí
+│   ├── README.md                 📂 Index dokumentace
+│   ├── ARCHITECTURE.md           🏗️ Architektura a tech stack
+│   ├── STRATEGY.md               📈 Strategie a MVP roadmapa
+│   ├── DESIGN.md                 🎨 Brand a vizuální identita
+│   ├── DATABASE.md               🗄️ Databáze a migrace
+│   ├── PROMPTS.md                🤖 Reference AI promptů
+│   ├── progress.md               📝 Log postupu prací
+│   └── CLAUDE.md                 🛠️ Tento soubor (instrukce pro agenty)
+├── scripts/                      🛠️ Importní a údržbové skripty
+├── supabase/                     🗄️ SQL schémata a migrace
+└── docker-compose.yml            🚀 Deployment konfigurace
 ```
 
 ## Klíčové soubory
 
 | Soubor | Účel |
 |--------|------|
-| `implementation.md` | Roadmapa s úkoly a checklistem |
+| `docs/progress.md` | Historie vývoje a aktuální stav |
+| `docs/ARCHITECTURE.md` | Detailní popis technického řešení |
+| `www/src/app/page.tsx` | Hlavní vstupní bod aplikace |
+| `www/src/lib/db.ts` | SQLite Singleton wrapper |
+| `www/src/lib/gemini-client.ts` | Gemini 3 Flash integrace |
 | `progress.md` | Zápisy z každého vývojového runu |
 | `www/src/lib/storage.ts` | Lokální úložiště s optimalizací a deduplikací |
 | `www/src/lib/local-vision.ts` | Lokální AI kontrola obsahu (Transformers.js) |
@@ -85,8 +91,9 @@
 2. **Během práce:** Implementuj úkoly podle roadmapy
 3. **Po práci:** Zapiš do `progress.md` co bylo uděláno
 4. **Testování:** Po každém runu otestuj funkčnost (build, lint, nebo manuální ověření)
-5. **Testování (příkazy):** `make dev` (lokálně) nebo `make deploy-dev` (dev doména)
-6. **Deploy:** `make deploy-prod`
+5. **Deploy & Test:** Pokud byl proveden deploy, **VŽDY** otestuj výsledek na **vybaveno.yrx.cz** (testovací server) před ukončením odpovědi.
+6. **Testování (příkazy):** `make dev` (lokálně) nebo `make deploy-dev` (dev doména)
+7. **Deploy:** `make deploy-prod`
 
 ## Příkazy
 
@@ -94,10 +101,10 @@
 # Vývoj (lokální)
 make dev
 
-# Deploy na dev (vybaveno.yrx.cz)
+# Deploy na dev (vybaveno.yrx.cz přes Docker)
 make deploy-dev
 
-# Deploy na produkci (vybaveno.cz)
+# Deploy na produkci
 make deploy-prod
 
 # Build

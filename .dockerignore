@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.vscode
+vybaveno.db
+*.txt
+docs/tmp
+www/node_modules
+www/.next
+www/public/uploads

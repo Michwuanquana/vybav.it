@@ -12,23 +12,38 @@ class DB {
     console.log("DB: Connecting to", DB_PATH);
     this.db = new sqlite3.Database(DB_PATH, (err) => {
       if (err) console.error("DB: Connection error", err);
-      else console.log("DB: Connected successfully");
+      else {
+        console.log("DB: Connected successfully");
+        console.log("- Local:         https://vybaveno.yrx.cz");
+      }
     });
   }
 
-  async run(sql: string, params: any[] = []) {
-    const run = promisify(this.db.run.bind(this.db));
-    return await run(sql, params);
+  async run(sql: string, params: any[] = []): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, function(err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
   }
 
-  async get(sql: string, params: any[] = []) {
-    const get = promisify(this.db.get.bind(this.db));
-    return await get(sql, params);
+  async get(sql: string, params: any[] = []): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
   }
 
-  async all(sql: string, params: any[] = []) {
-    const all = promisify(this.db.all.bind(this.db));
-    return await all(sql, params);
+  async all(sql: string, params: any[] = []): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
   }
 }
 

@@ -41,9 +41,9 @@ npm run validate:csv -- --file=docs/tmp/jysk-cz-2026-01-03-2.csv --brand=JYSK --
 npm run validate:csv -- --file=docs/tmp/ikea-yrx-cz-2026-01-03-2.csv --brand=IKEA --show-warnings
 ```
 
-### 3️⃣ Import do databáze
+### 3️⃣ Import do databáze (SQLite)
 
-**DŮLEŽITÉ**: Nejprve aplikuj SQL migrace v Supabase!
+**DŮLEŽITÉ**: Import probíhá do lokální SQLite databáze `vybaveno.db` v kořeni projektu.
 
 ```bash
 # Dry run (test bez zápisu do DB)

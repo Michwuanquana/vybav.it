@@ -1,0 +1,11 @@
+<svg width="180" height="40" viewBox="0 0 180 40" xmlns="http://www.w3.org/2000/svg">
+  <!-- Symbol: Stylized house with check-mark -->
+  <g transform="translate(2, 4)">
+    <!-- House Shape (Sage Green) -->
+    <path d="M4 16 L16 4 L28 16 V26 Q28 30 24 30 H8 Q4 30 4 26 Z" fill="#5D7A66" />
+    <!-- Check-mark (Terracotta) -->
+    <path d="M11 18 L15 22 L23 12" fill="none" stroke="#C1664E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+  <!-- Logotype: "vybaveno" in lowercase -->
+  <text x="42" y="28" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="24" fill="#242424" letter-spacing="-0.5">vybaveno</text>
+</svg>

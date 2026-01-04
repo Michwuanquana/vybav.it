@@ -11,16 +11,37 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  www:
+    build:
+      context: .
+      dockerfile: ./www/Dockerfile
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BASE_URL=https://vybaveno.yrx.cz
+    volumes:
+      - ./vybaveno.db:/app/vybaveno.db
+      - ./www/public/uploads:/app/www/public/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vybaveno.rule=Host(`vybaveno.yrx.cz`)"
+      - "traefik.http.routers.vybaveno.entrypoints=websecure"
+      - "traefik.http.routers.vybaveno.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vybaveno.loadbalancer.server.port=3000"
+    networks:
+      - traefik_network
+      - default
+
   dev-tools:
     image: nginx:alpine
     volumes:
       - ./docs/tmp:/usr/share/nginx/html:ro
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vybaveno-dev.rule=Host(`vybaveno.yrx.cz`)"
-      - "traefik.http.routers.vybaveno-dev.entrypoints=websecure"
-      - "traefik.http.routers.vybaveno-dev.tls.certresolver=letsencrypt"
-      - "traefik.http.services.vybaveno-dev.loadbalancer.server.port=80"
+      - "traefik.http.routers.vybaveno-docs.rule=Host(`docs.vybaveno.yrx.cz`)"
+      - "traefik.http.routers.vybaveno-docs.entrypoints=websecure"
+      - "traefik.http.routers.vybaveno-docs.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vybaveno-docs.loadbalancer.server.port=80"
     networks:
       - traefik_network
       - default

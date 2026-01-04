@@ -10,10 +10,10 @@ dev:
 build:
 	cd www && npm run build
 
-# Nasadí na vývojové prostředí (preview)
+# Nasadí na vývojové prostředí (lokální Docker)
 deploy-dev:
-	cd www && npx vercel
+	docker-compose down && docker-compose up -d --build www
 
 # Nasadí na produkční prostředí
 deploy-prod:
-	cd www && npx vercel --prod
+	docker-compose down && docker-compose up -d --build www

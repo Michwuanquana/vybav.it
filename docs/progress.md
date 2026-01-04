@@ -4,6 +4,162 @@ Zápisy z každého vývojového runu. Nejnovější nahoře.
 
 ---
 
+## [2026-01-04] - Sprint 10: UI Quick Wins & Concierge Polish
+
+### Dokončeno
+- [x] **Preselection:** Nastaven "Obývací pokoj" (`living`) jako výchozí vybraná místnost pro okamžitou zpětnou vazbu v UI.
+- [x] **Sidebar Opacity:** Zvýšena průhlednost pravého panelu na `bg-white/60` s `backdrop-blur-md` pro modernější "glassmorphism" vzhled, který lépe integruje panel do scény.
+- [x] **Empty States Refinement:**
+    - Nahrazení strohých ikon (Info) za přívětivější vizuály (`Sofa`, `Sparkles`).
+    - Přidán placeholder text: "Váš inteligentní návrh se zobrazí právě zde."
+    - Sjednocení stylu prázdných stavů v hlavním panelu i katalogu produktů.
+- [x] **Slider Progress:** Opravena vizuální indikace postupu u slideru rozpočtu. Aktivní část (Range) nyní používá brandovou barvu `bg-sage` místo nevýrazné šedé.
+- [x] **UI Consistency:** Sjednocení barev ovládacích prvků (Thumb, Track) na brandovou `sage` v komponentě `ui/slider.tsx`.
+- [x] **Responsive Settings:** Oprava rozbitého layoutu ikon při šířce ~1200px. Nastavení (Rozpočet a Typ místnosti) se nyní v sidebaru řadí nad sebe až do šířky 1280px (`xl`), což dává prvkům více prostoru.
+- [x] **Room Selector Optimization:** Ikony v výběru místnosti se nyní dynamicky přizpůsobují šířce kontejneru (2-5 sloupců) a mají optimalizovanou velikost, aby nedocházelo k přetékání textu.
+- [x] **Manual Budget Input:** Přidána možnost ručního zadání rozpočtu kliknutím na částku. Částka se změní na textové pole, které po potvrzení (Enter/Blur) aktualizuje návrh.
+- [x] **Instant Product Discovery:** Produkty se nyní načítají okamžitě po vstupu na stránku (Discovery Mode) bez nutnosti nahrát fotku.
+- [x] **Dynamic Results View:** Komponenta `ResultsView` byla upravena tak, aby fungovala i bez AI analýzy. V takovém případě zobrazuje "Discovery Mode" s nejlepšími kousky pro vybranou místnost.
+- [x] **Initial State Sync:** Přidán `useEffect` pro načtení výchozích produktů při startu aplikace a propojení změn filtrů (místnost, rozpočet) s okamžitou aktualizací seznamu i v prázdném stavu.
+- [x] **UI Simplification:** Odstraněno tlačítko "Vizualizovat" u jednotlivých produktů. Hlavní akcí je nyní výběr produktů a následné vygenerování celého návrhu pomocí hlavního tlačítka, což je pro uživatele srozumitelnější a méně matoucí.
+- [x] **Documentation Cleanup:** Kompletní reorganizace a promazání dokumentace. Odstraněno 15+ zastaralých souborů, konsolidace do 5 hlavních dokumentů (`ARCHITECTURE`, `STRATEGY`, `DESIGN`, `DATABASE`, `PROMPTS`) a vytvoření centrálního indexu `docs/README.md`.
+
+---
+
+## [2026-01-04] - Sprint 9: Final Polish & Mobile Optimization
+
+### Dokončeno
+- [x] **SEO & Meta:** Implementovány OpenGraph a Twitter meta tagy v `layout.tsx` pro lepší sdílení na sociálních sítích.
+- [x] **Mobile UX:** 
+    - Zvětšení ovládacího prvku slideru (48px) pro lepší ovladatelnost prstem.
+    - Zvětšení interaktivní plochy (Stage) na mobilu na 50vh.
+    - Přidání aktivních stavů a animací pro dotykové ovládání.
+- [x] **Visual Refinement:** Snížení intenzity bluru na pozadí a v překryvných vrstvách (z `blur-xl` na `blur-sm`) pro čistší a profesionálnější vzhled.
+
+### Plánováno
+- [ ] **Final Testing:** Kompletní průchod aplikací na různých zařízeních.
+- [ ] **Documentation:** Finální revize technické dokumentace pro předání.
+
+---
+
+## [2026-01-03] - Sprint 8: Agent Evolution & Persona Refinement
+
+### Dokončeno
+- [x] **Agent Evolution:** Aktualizován `Vybaveno.agent.md` na verzi 2.0. Agent nyní obsahuje specifické technické imperativy (FTS5, SQLite permissions, Gemini 3 Flash) a hlubší propojení s brand archetypem "Modern Concierge".
+- [x] **Persona Alignment:** Posílení filozofie "Od chaosu ke klidu" v instrukcích agenta a definice "Svaté trojice" pravidel (Kontext, Integrita, Kvalita).
+- [x] **UX Refinement (Sprint 8 - P0/P1/P2):**
+    - **Marker ↔ Sidebar Sync:** Implementován okamžitý filtr a highlight (terakota border) při hoveru na marker.
+    - **Full Design CTA:** Přidáno sticky tlačítko "✨ Vygenerovat návrh" pro kompletní vizualizaci.
+    - **Sidebar Upgrade:** Produkty jsou nyní seskupeny podle kategorií a doplněny o interaktivní Budget Tracker.
+    - **Marker Hierarchy:** Omezení na 6 primárních ikon, hierarchie velikostí (hlavní nábytek je větší) a pulzující animace.
+    - **Navigace:** Přejmenování tlačítek na "Upravit pozice" a "Dokončit návrh" pro lepší srozumitelnost.
+    - **Before/After Slider:** Implementován interaktivní slider pro plynulé porovnání původní fotky a AI návrhu přímo na hlavním plátně.
+    - **Fix pozicování markerů:** Vyřešen problém s "cestováním" markerů při změně velikosti okna. Markery jsou nyní pevně připnuty k obsahu obrázku bez ohledu na poměr stran kontejneru.
+    - **Optimalizace vyhledávání:** Implementována pokročilá FTS5 logika (prefix matching `*`, AND/OR fallback, BM25 váhy) pro přesnější shodu produktů jako "stojací lampa".
+    - **Zpřesnění AI doporučení:** Aktualizován Gemini prompt pro generování vysoce specifických českých vyhledávacích dotazů.
+    - **Metadata místnosti:** Rozšířené zobrazení odhadovaných rozměrů, charakteristiky stylu a barevné palety.
+    - **Performance UX:** Detailní indikátor postupu generování s fázemi (např. "Ladíme osvětlení...") pro lepší zpětnou vazbu během ~25s čekání.
+    - **Empty States:** Přidáno vizuální upozornění, pokud v katalogu nejsou nalezeny žádné produkty pro daný filtr.
+    - **Error Handling:** Implementován robustní systém pro zachycení chyb Gemini API s možností restartu analýzy/vizualizace.
+    - **Export & Share:** Přidána tlačítka pro stažení návrhu a sdílení odkazu.
+    - **Brand Identity:** Vytvořeno oficiální SVG logo a favicona na základě brandových manuálů. Logo integrováno do landing page a post-analytického rozhraní.
+    - **Landing Modal Refinement:** Kompletní redesign úvodního modalu. Silnější CTA (Galerie/Vyfotit), vizuální tipy s ikonami, odstranění "AI" terminologie a vylepšené pozadí s hlubokým blurem.
+
+---
+
+## [2026-01-03] - Sprint 7: Production Stabilization & Permission Fixes
+
+### Dokončeno
+- [x] **Oprava oprávnění DB:** Vyřešen kritický problém `SQLITE_READONLY` na produkčním serveru nastavením oprávnění `666` pro `vybaveno.db`.
+- [x] **Environment Sync:** Oprava předávání `GEMINI_API_KEY` do Docker kontejneru přes `env_file` a reset `docker-compose`.
+- [x] **FTS Query Fix:** Oprava syntaktické chyby v FTS5 vyhledávání (escapování dotazů do uvozovek), která způsobovala pády při hledání produktů s pomlčkami v názvu.
+- [x] **Production Data Parity:** Kompletní inicializace a import dat (5700+ produktů) přímo na produkčním serveru.
+- [x] **Upload Flow:** Ověření zápisu do databáze a filesystemu pod uživatelem `www-data` uvnitř kontejneru.
+
+### Technické detaily
+- **Permissions:** Databáze musí mít `666` (nebo `664` s korektní grupou), aby Docker kontejner běžící pod jiným UID mohl provádět zápisy (SQLite vytváří `-journal` soubory).
+- **Docker Compose:** Použití `env_file: .env` se ukázalo jako stabilnější pro předávání klíčů než přímé mapování v `environment` sekci u starších verzí docker-compose.
+
+---
+
+## [2026-01-03] - Sprint 6: FTS5 Search & Guaranteed Density
+
+### Dokončeno
+- [x] **FTS5 Implementace:** Vytvoření virtuální tabulky `products_fts` v SQLite pro bleskové full-text vyhledávání s BM25 rankingem.
+- [x] **Zónový Prompt:** Úprava `ANALYSIS_PROMPT` pro generování 10-15 zón a specifických vyhledávacích dotazů (search queries).
+- [x] **Tříúrovňový algoritmus:** Implementace garantovaného zaplnění (1. Značky, 2. Skrytá doporučení, 3. Discovery).
+- [x] **Ranked Search API:** Přechod na `MATCH` a `bm25()` v `/api/products/recommend` pro maximální relevanci.
+- [x] **UI Optimalizace:** Prohození ovládacích prvků (Cena vs Typ pokoje) a zahuštění mřížky produktů.
+- [x] **Data Sync:** Implementace SQLite triggerů pro automatickou synchronizaci FTS indexu při změnách v produktech.
+- [x] **Interaktivní Propojení (Hover & Match):** Implementace synchronizace mezi AI značkami na fotce a katalogem produktů.
+- [x] **Infinite Loading:** Přidáno tlačítko pro dynamické načítání dalších produktů z databáze přímo v sidebaru.
+- [x] **Server Fixes:** Oprava escapování FTS dotazů (uvozovky) a kompletní inicializace databáze na serveru (import 5700+ produktů).
+
+### Technické detaily
+- **BM25 Tuning:** Váhy nastaveny na (5.0, 1.0, 1.0, 1.0, 1.0, 2.0) pro prioritizaci názvu a klíčových slov.
+- **State Sync:** Použití `activeCategory` pro real-time řazení a zvýraznění produktů při hoveru na fotce.
+- **FTS5 Schema:** Virtuální tabulka používá `id UNINDEXED` pro efektivní join s hlavní tabulkou `products`.
+
+---
+
+## [2026-01-03] - Sprint 5: Studio UX & Visualization Refactoring
+
+### Dokončeno
+- [x] **Layout 60/40:** Implementace vertikálního rozdělení 60% (Stage) / 40% (Sidebar) na PC pro lepší vizuální rovnováhu.
+- [x] **Diverzita ikon:** AI značky na fotce nyní používají specifické ikony podle typu nábytku (pohovka, lampa, stůl atd.) místo univerzální hvězdičky.
+- [x] **Optimalizace Viewportu:** Zahuštění informací v sidebaru a zmenšení paddingů, aby bylo ve viewportu vidět více produktů najednou.
+- [x] **Lucide integrace:** Nahrazení emoji v selektoru místností za konzistentní Lucide ikony.
+- [x] **Refaktoring vizualizace:** Vizualizace (vygenerovaný obrázek) se nyní zobrazuje přímo na hlavním plátně místo v postranním panelu.
+- [x] **Lifting State:** Stav vizualizace a logika generování přesunuta do `page.tsx` pro lepší koordinaci mezi komponentami.
+- [x] **Kompaktní Sidebar:** `ResultsView.tsx` kompletně přepracován na kompaktní postranní panel zaměřený na analýzu a seznam produktů.
+- [x] **Interaktivní Stage:** Hlavní plocha nyní podporuje interaktivní AI značky (markers) a přepínání mezi původní a vygenerovanou fotkou.
+- [x] **Oprava API:** Sjednoceno volání vizualizace na `/api/generate` s korektním payloadem.
+
+---
+
+## [2026-01-03] - Sprint 4: Infrastructure & Agent Setup
+
+### Dokončeno
+- [x] **Oprava DB vrstvy:** Vyřešeny problémy s `promisify` v `scripts/lib/db.ts`, které blokovaly importy a validace.
+- [x] **AI Pipeline Test:** Vytvořen skript `scripts/test-ai-pipeline.ts` pro end-to-end testování analýzy a doporučování produktů.
+- [x] **Agent Setup:** Vytvořen specializovaný agent `Vybaveno.agent.md` a aktualizován `CLAUDE.md` o povinnost testování na `vybaveno.yrx.cz` po každém deployi.
+- [x] **Validace dat:** Úspěšně ověřena funkčnost importu a vyhledávání v lokální SQLite databázi (5 600+ produktů).
+- [x] **Vylepšení doporučování:** SQL dotaz v `/api/products/recommend` nyní inteligentně filtruje venkovní nábytek pro vnitřní místnosti.
+- [x] **Studio Editor (Alpha):** Implementována nová komponenta `StudioEditor.tsx` umožňující manuální přidávání a úpravu bodů v místnosti. Integrováno do `ResultsView`.
+
+---
+
+## [2026-01-03] - Sprint 3: UX Refinement & Visual Anchoring
+
+### Dokončeno
+- [x] **Fáze 6: Visual Anchoring (Interaktivní umisťování)**
+    - Implementace AI značek (markers) přímo do náhledu místnosti po analýze
+    - Automatické generování souřadnic (X, Y) pro doporučený nábytek pomocí Gemini
+    - Tooltipy s detaily doporučení a náhledem produktu přímo na fotce
+- [x] **UX & Design Polish**
+    - Odstranění "AI" terminologie pro přirozenější uživatelský zážitek (nahrazeno "inteligentním systémem")
+    - Implementace plynulých přechodů (blur & fade-in) při generování návrhu
+    - Přidání živého časoměřiče a indikátorů fází postupu (Analýza -> Výběr -> Vizualizace)
+- [x] **Relevance doporučení**
+    - Integrace kontextu typu místnosti (např. "pracovna") do analytického promptu
+    - Prioritizace základního nábytku (stoly, postele) před doplňky u prázdných místností
+    - Vylepšený SQL ranking v `/api/products/recommend` (vážené řazení podle AI doporučení a kategorií)
+- [x] **Technická stabilizace**
+    - Implementace Singleton patternu pro SQLite v Next.js (prevence "too many clients" chyb)
+    - Detailní měření času (timing logs) pro všechny backendové procesy
+    - Oprava kritických chyb (ReferenceError: cn, Fetch errors)
+
+### Technické detaily
+- **Visual Anchoring:** Gemini nyní vrací souřadnice v měřítku 0-1000, které frontend mapuje na responzivní náhled.
+- **Performance:** Průměrná doba analýzy ~8s, generování vizualizace ~25s.
+- **Database:** SQLite singleton v `src/lib/db.ts` zajišťuje stabilitu při HMR v dev módu.
+
+### Další kroky
+- [ ] Vytvoření "Studio" editoru pro manuální úpravy designu
+- [ ] Implementace exportu návrhu do PDF/Emailu
+
+---
+
 ## [2026-01-03] - Sprint 2: Data & AI Foundation
 
 ### Dokončeno

@@ -7,6 +7,7 @@ import path from "path";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   console.log("API: /api/generate started");
   try {
     const body = await req.json();
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Získání dat o session a produktu
+    const dbStart = Date.now();
     console.log("API: Fetching session and product from DB");
     const session = await db.get('SELECT * FROM sessions WHERE id = ?', [sessionId]) as any;
     const product = await db.get('SELECT * FROM products WHERE id = ?', [productId]) as any;
@@ -31,15 +33,19 @@ export async function POST(req: NextRequest) {
       console.error("API: Session or product not found", { sessionId, productId });
       return NextResponse.json({ error: "Session nebo produkt nebyl nalezen" }, { status: 404 });
     }
+    console.log(`API: DB fetch took ${Date.now() - dbStart}ms`);
 
     const analysis = JSON.parse(session.analysis_result || "{}");
 
     // 2. Příprava obrázků
+    const imageReadStart = Date.now();
     console.log("API: Reading room image", session.original_image_url);
     const roomImagePath = path.join(process.cwd(), 'public', session.original_image_url);
     const roomImageBuffer = await fs.readFile(roomImagePath);
+    console.log(`API: Image read took ${Date.now() - imageReadStart}ms`);
 
     // 3. Volání Gemini 3 Flash pro Inpainting
+    const geminiStart = Date.now();
     console.log("API: Building prompt");
     const prompt = buildInpaintingPrompt(analysis, product, userInstruction, coordinates);
     
@@ -81,7 +87,7 @@ export async function POST(req: NextRequest) {
 
       // Hledáme obrázek v odpovědi
       const response = result.response;
-      const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+      const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
 
       if (imagePart && imagePart.inlineData) {
         console.log("API: Gemini returned an image");
@@ -97,11 +103,17 @@ export async function POST(req: NextRequest) {
         finalImageUrl = session.original_image_url;
       }
     }
+    console.log(`API: Gemini generation took ${Date.now() - geminiStart}ms`);
 
-    console.log("API: Success, returning", finalImageUrl);
+    const totalTime = Date.now() - startTime;
+    console.log(`API: Generation complete in ${totalTime}ms`);
     return NextResponse.json({ 
       imageUrl: finalImageUrl,
-      message: "Návrh byl úspěšně vygenerován (v preview verzi může jít o simulaci)"
+      message: "Návrh byl úspěšně vygenerován",
+      _timing: {
+        total: totalTime,
+        gemini: Date.now() - geminiStart
+      }
     });
 
   } catch (error) {

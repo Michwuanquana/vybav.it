@@ -6,11 +6,12 @@ import fs from "fs/promises";
 import path from "path";
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   console.log("API: /api/analyze started");
   try {
     const body = await req.json();
-    const { sessionId } = body;
-    console.log("API: sessionId =", sessionId);
+    const { sessionId, roomType } = body;
+    console.log("API: sessionId =", sessionId, "roomType =", roomType);
 
     if (!sessionId) {
       return NextResponse.json({ error: "Session ID chybí" }, { status: 400 });
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Získání dat obrázku pro Gemini
+    const imageReadStart = Date.now();
     let imageBuffer: Buffer;
     if (session.original_image_url.startsWith('/')) {
       // Lokální soubor
@@ -37,9 +39,11 @@ export async function POST(req: NextRequest) {
       const imageResponse = await fetch(session.original_image_url);
       imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
     }
+    console.log(`API: Image read took ${Date.now() - imageReadStart}ms`);
 
     // 3. Volání Gemini 3 Flash
     let analysisJson;
+    const geminiStart = Date.now();
     
     if (!process.env.GEMINI_API_KEY) {
       console.warn("GEMINI_API_KEY chybí, vracím mock data");
@@ -59,13 +63,26 @@ export async function POST(req: NextRequest) {
         },
         estimated_dimensions: { width_m: 4, length_m: 5, height_m: 2.5 },
         recommendations: [
-          { item: "pohovka", reason: "Mock doporučení", suggested_style: "scandinavian", suggested_color: "šedá" }
+          { 
+            item: "pohovka", 
+            reason: "Mock doporučení pro prázdný prostor", 
+            suggested_style: "scandinavian", 
+            suggested_color: "šedá",
+            placement_coordinates: { x: 500, y: 700 }
+          },
+          { 
+            item: "stůl", 
+            reason: "Doplnění pracovního koutu", 
+            suggested_style: "minimalist", 
+            suggested_color: "dub",
+            placement_coordinates: { x: 200, y: 800 }
+          }
         ]
       };
     } else {
-      console.log("API: Calling Gemini for analysis");
+      console.log("API: Calling Gemini for analysis with roomType context:", roomType);
       const result = await geminiFlash.generateContent([
-        ANALYSIS_PROMPT,
+        `${ANALYSIS_PROMPT}\n\nUser context: The user has identified this room as: ${roomType || 'unknown'}. Please prioritize recommendations suitable for this room type.`,
         {
           inlineData: {
             data: imageBuffer.toString("base64"),
@@ -79,16 +96,26 @@ export async function POST(req: NextRequest) {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       analysisJson = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(responseText);
     }
+    console.log(`API: Gemini analysis took ${Date.now() - geminiStart}ms`);
 
     // 4. Uložení výsledku do DB
+    const dbStart = Date.now();
     console.log("API: Updating session in DB");
     await db.run(
       'UPDATE sessions SET analysis_result = ?, status = ?, room_type = ? WHERE id = ?',
       [JSON.stringify(analysisJson), 'analyzed', analysisJson.room_type, sessionId]
     );
+    console.log(`API: DB update took ${Date.now() - dbStart}ms`);
 
-    console.log("API: Analysis complete");
-    return NextResponse.json(analysisJson);
+    const totalTime = Date.now() - startTime;
+    console.log(`API: Analysis complete in ${totalTime}ms`);
+    return NextResponse.json({
+      ...analysisJson,
+      _timing: {
+        total: totalTime,
+        gemini: Date.now() - geminiStart
+      }
+    });
   } catch (error) {
     console.error("API: Analysis error:", error);
     return NextResponse.json({ error: "Chyba při analýze místnosti" }, { status: 500 });

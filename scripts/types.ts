@@ -4,7 +4,7 @@
 
 export interface CSVRow {
   // Common fields
-  [key: string]: string;
+  [key: string]: string | undefined;
   
   // IKEA specific
   price?: string;

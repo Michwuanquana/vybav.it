@@ -12,11 +12,36 @@ export class LocalDB {
     this.db = new sqlite3.Database(DB_PATH);
   }
 
+  private runAsync(sql: string, params: any[] = []): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+  }
+
+  private getAsync(sql: string, params: any[] = []): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  }
+
+  public all(sql: string, params: any[] = []): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  }
+
   async init() {
-    const run = promisify(this.db.run.bind(this.db));
-    
     // Create products table
-    await run(`
+    await this.runAsync(`
       CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -46,7 +71,7 @@ export class LocalDB {
     `);
 
     // Create product_images table
-    await run(`
+    await this.runAsync(`
       CREATE TABLE IF NOT EXISTS product_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         product_id TEXT NOT NULL,
@@ -58,7 +83,7 @@ export class LocalDB {
     `);
 
     // Create sessions table
-    await run(`
+    await this.runAsync(`
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         original_image_url TEXT NOT NULL,
@@ -73,29 +98,24 @@ export class LocalDB {
   }
 
   async createSession(id: string, imageUrl: string) {
-    const run = promisify(this.db.run.bind(this.db));
-    await run(
+    await this.runAsync(
       'INSERT INTO sessions (id, original_image_url, status) VALUES (?, ?, ?)',
       [id, imageUrl, 'ready']
     );
   }
 
   async updateSessionAnalysis(id: string, analysis: any) {
-    const run = promisify(this.db.run.bind(this.db));
-    await run(
+    await this.runAsync(
       'UPDATE sessions SET analysis_result = ?, status = ? WHERE id = ?',
       [JSON.stringify(analysis), 'analyzed', id]
     );
   }
 
   async getSession(id: string) {
-    const get = promisify(this.db.get.bind(this.db));
-    return await get('SELECT * FROM sessions WHERE id = ?', [id]);
+    return await this.getAsync('SELECT * FROM sessions WHERE id = ?', [id]);
   }
 
   async upsertProduct(product: any) {
-    const run = promisify(this.db.run.bind(this.db));
-    
     const sql = `
       INSERT INTO products (
         id, name, brand, category, dimensions_cm, color, material, 
@@ -121,7 +141,7 @@ export class LocalDB {
         search_keywords=excluded.search_keywords
     `;
 
-    await run(sql, [
+    await this.runAsync(sql, [
       product.id,
       product.name,
       product.brand,
@@ -144,9 +164,8 @@ export class LocalDB {
   }
 
   async insertImages(productId: string, images: string[]) {
-    const run = promisify(this.db.run.bind(this.db));
     for (let i = 0; i < images.length; i++) {
-      await run(
+      await this.runAsync(
         'INSERT OR IGNORE INTO product_images (product_id, image_url, sort_order) VALUES (?, ?, ?)',
         [productId, images[i], i + 1]
       );

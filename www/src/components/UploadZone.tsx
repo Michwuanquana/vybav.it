@@ -9,9 +9,10 @@ interface UploadZoneProps {
   onUpload: (imageDataUrl: string, file: File) => void;
   uploadedImage: string | null;
   onClear: () => void;
+  className?: string;
 }
 
-export function UploadZone({ onUpload, uploadedImage, onClear }: UploadZoneProps) {
+export function UploadZone({ onUpload, uploadedImage, onClear, className }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,7 +81,8 @@ export function UploadZone({ onUpload, uploadedImage, onClear }: UploadZoneProps
         "relative w-full min-h-[320px] flex flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all duration-200 cursor-pointer",
         isDragging
           ? "border-terracotta bg-terracotta/5 scale-[1.01]"
-          : "border-sage/40 bg-sand/30 hover:bg-sand/50 hover:border-sage/60"
+          : "border-sage/40 bg-sand/30 hover:bg-sand/50 hover:border-sage/60",
+        className
       )}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -94,10 +96,22 @@ export function UploadZone({ onUpload, uploadedImage, onClear }: UploadZoneProps
         accept="image/*"
         className="hidden"
       />
+      {/* Hidden input for camera on mobile */}
+      <input
+        type="file"
+        onChange={onFileChange}
+        accept="image/*"
+        capture="environment"
+        id="camera-input"
+        className="hidden"
+      />
 
       <div className="flex flex-col items-center p-8 text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-sage/10 flex items-center justify-center text-sage">
-          <Upload className="w-8 h-8" />
+        <div className="relative">
+          <div className="absolute -inset-4 bg-sage/10 rounded-full animate-pulse" />
+          <div className="relative w-16 h-16 rounded-full bg-sage/20 flex items-center justify-center text-sage group-hover:scale-110 transition-transform duration-300">
+            <Upload className="w-8 h-8 animate-bounce [animation-duration:3s]" />
+          </div>
         </div>
         
         <div className="space-y-2">
@@ -105,28 +119,55 @@ export function UploadZone({ onUpload, uploadedImage, onClear }: UploadZoneProps
             Nahrajte fotku svého pokoje
           </h3>
           <p className="text-charcoal/60 max-w-xs mx-auto text-sm">
-            Přetáhněte fotku sem nebo klikněte pro výběr z galerie
+            Přetáhněte fotku sem nebo vyberte z galerie
           </p>
         </div>
 
         <div className="flex flex-wrap justify-center gap-3 pt-4">
-          <Button variant="outline" className="border-sage text-sage hover:bg-sage hover:text-white rounded-xl">
-            <ImageIcon className="w-4 h-4 mr-2" />
+          <Button 
+            variant="default" 
+            className="bg-sage hover:bg-sage/90 text-white rounded-2xl px-8 py-6 text-base shadow-lg shadow-sage/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerUpload();
+            }}
+          >
+            <ImageIcon className="w-5 h-5 mr-2" />
             Galerie
           </Button>
-          <Button className="bg-sage hover:bg-sage/90 text-white rounded-xl md:hidden">
-            <Camera className="w-4 h-4 mr-2" />
+          <Button 
+            className="bg-terracotta hover:bg-terracotta/90 text-white rounded-2xl px-8 py-6 text-base shadow-lg shadow-terracotta/20 md:hidden transition-all hover:scale-[1.02] active:scale-[0.98]"
+            onClick={(e) => {
+              e.stopPropagation();
+              document.getElementById('camera-input')?.click();
+            }}
+          >
+            <Camera className="w-5 h-5 mr-2" />
             Vyfotit
           </Button>
         </div>
 
-        <div className="pt-6 text-left bg-white/50 p-4 rounded-2xl border border-sage/10 max-w-sm">
-          <p className="text-xs font-semibold text-sage uppercase tracking-wider mb-2">Tipy pro nejlepší výsledek:</p>
-          <ul className="text-xs text-charcoal/70 space-y-1 list-disc pl-4">
-            <li>Foťte z rohu místnosti pro maximální záběr</li>
-            <li>Držte telefon vodorovně a ve výšce očí</li>
-            <li>Ideálně při denním světle, bez blesku</li>
-          </ul>
+        <div className="pt-6 w-full max-w-sm">
+          <div className="bg-white/60 backdrop-blur-sm p-5 rounded-2xl border border-sage/10 shadow-sm">
+            <p className="text-[10px] font-bold text-sage uppercase tracking-widest mb-3 flex items-center gap-2">
+              <span className="w-1 h-3 bg-sage rounded-full" />
+              Tipy pro nejlepší výsledek
+            </p>
+            <div className="grid grid-cols-1 gap-2 text-left">
+              <div className="flex items-center gap-3 text-xs text-charcoal/70">
+                <span className="text-base">📐</span>
+                <span>Foťte z rohu místnosti pro maximální záběr</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-charcoal/70">
+                <span className="text-base">📱</span>
+                <span>Držte telefon vodorovně a ve výšce očí</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-charcoal/70">
+                <span className="text-base">☀️</span>
+                <span>Ideálně při denním světle, bez blesku</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
