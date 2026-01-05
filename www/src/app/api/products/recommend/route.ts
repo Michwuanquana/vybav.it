@@ -36,13 +36,22 @@ export async function POST(req: NextRequest) {
     
     // 2. Parsování JSON polí
     const allProducts: Product[] = dbProducts.map((p: any) => {
-      const dimensions = p.dimensions_cm ? JSON.parse(p.dimensions_cm) : {};
+      let dimensions: Record<string, number> = {};
+      try {
+        const parsed = p.dimensions_cm ? JSON.parse(p.dimensions_cm) : null;
+        if (parsed && typeof parsed === 'object') {
+          dimensions = parsed;
+        }
+      } catch {
+        // Invalid JSON, use empty dimensions
+      }
+      
       return {
         ...p,
-        style_tags: p.style_tags ? JSON.parse(p.style_tags) : [],
-        width_cm: dimensions.width || dimensions.w || undefined,
-        depth_cm: dimensions.depth || dimensions.d || undefined,
-        height_cm: dimensions.height || dimensions.h || undefined,
+        style_tags: Array.isArray(p.style_tags) ? p.style_tags : (p.style_tags ? JSON.parse(p.style_tags) : []),
+        width_cm: dimensions?.width || dimensions?.w || undefined,
+        depth_cm: dimensions?.depth || dimensions?.d || undefined,
+        height_cm: dimensions?.height || dimensions?.h || undefined,
       };
     });
 
