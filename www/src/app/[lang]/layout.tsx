@@ -33,13 +33,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
+  params,
+}: {
   children: React.ReactNode;
-}>) {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
   return (
-    <html lang="cs">
+    <html lang={lang}>
       <body
         className={`${plusJakartaSans.variable} ${figtree.variable} font-sans antialiased`}
       >

@@ -4,21 +4,22 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { Sofa, Bed, Baby, Briefcase, Home } from "lucide-react";
 
-const ROOM_TYPES = {
-  living: { label: "Obývací pokoj", icon: Sofa },
-  bedroom: { label: "Ložnice", icon: Bed },
-  kids: { label: "Dětský pokojíček", icon: Baby },
-  office: { label: "Pracovna", icon: Briefcase },
-  other: { label: "Jiné", icon: Home },
-};
-
 interface RoomTypeSelectorProps {
   selected: string | null;
   onSelect: (roomType: string) => void;
   probabilities?: Record<string, number>;
+  dict: any;
 }
 
-export function RoomTypeSelector({ selected, onSelect, probabilities }: RoomTypeSelectorProps) {
+export function RoomTypeSelector({ selected, onSelect, probabilities, dict }: RoomTypeSelectorProps) {
+  const ROOM_TYPES = {
+    living: { label: dict.room_types.living, icon: Sofa },
+    bedroom: { label: dict.room_types.bedroom, icon: Bed },
+    kids: { label: dict.room_types.kids, icon: Baby },
+    office: { label: dict.room_types.office, icon: Briefcase },
+    other: { label: dict.room_types.other, icon: Home },
+  };
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-3">
       {Object.entries(ROOM_TYPES).map(([id, { label, icon: Icon }]) => {

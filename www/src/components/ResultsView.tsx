@@ -11,14 +11,17 @@ import {
   ShoppingCart, 
   ExternalLink,
   ArrowLeft,
-  Sparkles,
+  Wand,
   Loader2,
   Download,
   Edit3,
-  Layout
+  Layout,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StudioEditor } from "./StudioEditor";
+import { Input } from "@/components/ui/input";
 
 interface Product {
   id: string;
@@ -51,11 +54,20 @@ interface AnalysisResult {
     length_m: number;
     height_m: number;
   };
+  furnishing_level?: {
+    percentage: number;
+    category: 'empty' | 'sparse' | 'furnished';
+    detected_items: string[];
+    missing_essentials: string[];
+  };
+  no_points_reason?: string | null;
   recommendations: Array<{
     item: string;
     reason: string;
     suggested_style: string;
     suggested_color: string;
+    priority?: number;
+    size_category?: 'large' | 'medium' | 'small';
     placement_coordinates?: {
       x: number;
       y: number;
@@ -77,6 +89,7 @@ interface ResultsViewProps {
   activeCategory?: string | null;
   budget?: number;
   roomType?: string | null;
+  dict: any;
 }
 
 export function ResultsView({ 
@@ -91,13 +104,42 @@ export function ResultsView({
   isLoadingMore,
   activeCategory,
   budget = 25000,
-  roomType
+  roomType,
+  dict
 }: ResultsViewProps) {
   const [showStudio, setShowStudio] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [feedbackSent, setFeedbackSent] = useState<'up' | 'down' | null>(null);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   const activeIsGenerating = externalIsGenerating;
+
+  const handleFeedback = async (type: 'up' | 'down', comment?: string) => {
+    if (isSubmittingFeedback) return;
+    
+    setIsSubmittingFeedback(true);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          type,
+          comment,
+          target: 'analysis'
+        }),
+      });
+      setFeedbackSent(type);
+      setShowFeedbackDialog(false);
+    } catch (error) {
+      console.error("Feedback error:", error);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   // Toggle product selection for budget calculation
   const toggleProductSelection = (productId: string) => {
@@ -203,13 +245,13 @@ export function ResultsView({
   };
 
   return (
-    <div className="flex flex-col h-full relative">
-      <div className="flex-1 overflow-y-auto space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700 pr-2">
+    <div className="flex flex-col relative">
+      <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex items-center justify-between pt-2">
           <img src="/logo.svg" alt="Vybaveno" className="h-6" />
           <Button variant="ghost" onClick={onBack} className="text-sage hover:text-sage/80 p-0 h-auto text-xs">
             <ArrowLeft className="w-3 h-3 mr-1.5" />
-            Zpět
+            {dict.common.back}
           </Button>
         </div>
 
@@ -222,18 +264,31 @@ export function ResultsView({
               className="border-sage/20 text-sage hover:bg-sage/5 h-7 text-[10px] px-3"
             >
               <Edit3 className="w-3 h-3 mr-1.5" />
-              Upravit pozice
+              {dict.results.edit_positions}
             </Button>
             <Badge variant="outline" className="bg-sage/5 text-sage border-sage/20 px-2 py-0 text-[9px]">
-              Dokončit návrh
+              {dict.results.finish_design}
             </Badge>
           </div>
         </div>
 
+        {/* No Points Warning */}
+        {analysis?.no_points_reason && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
+            <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-amber-900">{dict.results.no_points_title || "Upozornění analýzy"}</p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                {analysis.no_points_reason}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Budget Tracker */}
         <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-sage/10 space-y-2">
           <div className="flex justify-between items-end">
-            <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">Rozpočet</h3>
+            <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">{dict.common.budget}</h3>
             <p className="text-xs font-bold text-charcoal">
               {totalPrice.toLocaleString('cs-CZ')} / {budget.toLocaleString('cs-CZ')} Kč
             </p>
@@ -255,22 +310,29 @@ export function ResultsView({
             <div className="bg-white/40 backdrop-blur-sm rounded-2xl border border-sage/5 overflow-hidden">
               <div className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">Analýza prostoru</h3>
-                  <Badge variant="secondary" className="bg-sage/10 text-sage border-none text-[9px] px-2">
-                    {analysis.detected_style}
-                  </Badge>
+                  <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">{dict.results.analysis_title}</h3>
+                  <div className="flex gap-2">
+                    {analysis.furnishing_level && (
+                      <Badge variant="outline" className="bg-sage/5 text-sage border-sage/10 text-[9px] px-2">
+                        {analysis.furnishing_level.percentage}% {dict.results[`${analysis.furnishing_level.category}_room` as keyof typeof dict.results] || analysis.furnishing_level.category}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="bg-sage/10 text-sage border-none text-[9px] px-2">
+                      {analysis.detected_style}
+                    </Badge>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-[9px] text-charcoal/40 uppercase font-bold">Odhadované rozměry</p>
+                    <p className="text-[9px] text-charcoal/40 uppercase font-bold">{dict.results.dimensions}</p>
                     <p className="text-xs font-bold text-charcoal">
                       {analysis.estimated_dimensions.width_m} × {analysis.estimated_dimensions.length_m} m
                       <span className="text-charcoal/40 font-normal ml-1">(v. {analysis.estimated_dimensions.height_m}m)</span>
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[9px] text-charcoal/40 uppercase font-bold">Barevná paleta</p>
+                    <p className="text-[9px] text-charcoal/40 uppercase font-bold">{dict.results.palette}</p>
                     <div className="flex items-center gap-2">
                       <div className="flex -space-x-1">
                         <div className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: analysis.color_palette.primary }} />
@@ -283,10 +345,50 @@ export function ResultsView({
                 </div>
 
                 <div className="pt-3 border-t border-sage/5">
-                  <p className="text-[9px] text-charcoal/40 uppercase font-bold mb-1">Charakteristika stylu</p>
+                  <p className="text-[9px] text-charcoal/40 uppercase font-bold mb-1">{dict.results.style_char}</p>
                   <p className="text-[11px] text-charcoal/70 leading-relaxed italic">
-                    "Tento prostor vykazuje prvky {analysis.detected_style.toLowerCase()}ho stylu s důrazem na {analysis.architecture.walls.toLowerCase()} a {analysis.architecture.floor_material.toLowerCase()}."
+                    "{dict.results.style_desc
+                      .replace('{style}', analysis.detected_style)
+                      .replace('{walls}', analysis.architecture.walls.toLowerCase())
+                      .replace('{floor}', analysis.architecture.floor_material.toLowerCase())}"
                   </p>
+                </div>
+              </div>
+
+              {/* Feedback Section */}
+              <div className="px-4 pb-4 flex items-center justify-between border-t border-sage/5 pt-3">
+                <p className="text-[10px] font-bold text-charcoal/30 uppercase tracking-widest">
+                  {feedbackSent ? dict.results.feedback_thanks : dict.results.feedback_title}
+                </p>
+                <div className="flex gap-2">
+                  {!feedbackSent || feedbackSent === 'up' ? (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleFeedback('up')}
+                      disabled={!!feedbackSent || isSubmittingFeedback}
+                      className={cn(
+                        "h-7 w-7 p-0 rounded-full transition-all",
+                        feedbackSent === 'up' ? "bg-sage/10 text-sage" : "text-charcoal/20 hover:text-sage hover:bg-sage/5"
+                      )}
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                    </Button>
+                  ) : null}
+                  {!feedbackSent || feedbackSent === 'down' ? (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowFeedbackDialog(true)}
+                      disabled={!!feedbackSent || isSubmittingFeedback}
+                      className={cn(
+                        "h-7 w-7 p-0 rounded-full transition-all",
+                        feedbackSent === 'down' ? "bg-terracotta/10 text-terracotta" : "text-charcoal/20 hover:text-terracotta hover:bg-terracotta/5"
+                      )}
+                    >
+                      <ThumbsDown className="w-3.5 h-3.5" />
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -294,11 +396,11 @@ export function ResultsView({
             <div className="bg-white/40 backdrop-blur-sm rounded-2xl border border-sage/5 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-sage/10 rounded-full flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-sage" />
+                  <Wand className="w-4 h-4 text-sage" />
                 </div>
                 <div>
-                  <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">Discovery Mode</h3>
-                  <p className="text-[11px] text-charcoal/60">Zobrazujeme nejlepší kousky pro {roomType === 'living' ? 'obývací pokoj' : roomType}. Nahrajte fotku pro personalizovaný výběr.</p>
+                  <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">{dict.results.discovery_mode}</h3>
+                  <p className="text-[11px] text-charcoal/60">{dict.results.discovery_text.replace('{roomType}', roomType === 'living' ? 'obývací pokoj' : roomType || '')}</p>
                 </div>
               </div>
             </div>
@@ -308,12 +410,12 @@ export function ResultsView({
           <div className="space-y-6">
             {processedProducts.flat.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 bg-white/40 backdrop-blur-sm rounded-3xl border border-dashed border-sage/20">
-                <div className="w-12 h-12 bg-sage/5 rounded-full flex items-center justify-center shadow-sm">
-                  <Sparkles className="w-6 h-6 text-sage/30" />
-                </div>
+                  <div className="w-12 h-12 bg-sage/5 rounded-full flex items-center justify-center shadow-sm">
+                    <Wand className="w-6 h-6 text-sage/30" />
+                  </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-charcoal">Žádné produkty nenalezeny</p>
-                  <p className="text-[11px] text-stone-500 max-w-[200px] mx-auto">Zkuste změnit typ místnosti nebo rozpočet pro více výsledků.</p>
+                  <p className="text-sm font-bold text-charcoal">{dict.results.no_products}</p>
+                  <p className="text-[11px] text-stone-500 max-w-[200px] mx-auto">{dict.results.no_products_text}</p>
                 </div>
               </div>
             ) : (
@@ -322,7 +424,7 @@ export function ResultsView({
                   <div className="flex items-center justify-between">
                     <h3 className="text-[10px] font-bold text-charcoal/40 flex items-center gap-2 uppercase tracking-widest">
                       <span className="w-1 h-3 bg-sage/30 rounded-full" />
-                      {category}
+                      {category === "Ostatní" ? dict.results.other : category}
                     </h3>
                   </div>
 
@@ -362,7 +464,7 @@ export function ResultsView({
                               </button>
                               {isHovered && (
                                 <div className="absolute inset-0 bg-terracotta/10 flex items-center justify-center pointer-events-none">
-                                  <Sparkles className="w-6 h-6 text-terracotta animate-pulse" />
+                                  <Wand className="w-6 h-6 text-terracotta animate-pulse" />
                                 </div>
                               )}
                             </div>
@@ -386,7 +488,7 @@ export function ResultsView({
                                 )} asChild>
                                   <a href={product.affiliate_url} target="_blank" rel="noopener noreferrer">
                                     <ShoppingCart className="w-2.5 h-2.5 mr-1.5" />
-                                    Koupit
+                                    {dict.results.buy}
                                   </a>
                                 </Button>
                               </div>
@@ -411,7 +513,7 @@ export function ResultsView({
               {isLoadingMore ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                "Načíst další produkty"
+                dict.results.load_more
               )}
             </Button>
           )}
@@ -429,15 +531,39 @@ export function ResultsView({
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <>
-              <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-              <span className="text-base">✨ Vygenerovat návrh</span>
+              <Wand className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+              <span className="text-base">{dict.results.generate_design}</span>
             </>
           )}
         </Button>
         {selectedProductIds.size === 0 && (
-          <p className="text-[10px] text-center text-charcoal/40 mt-2">Vyberte alespoň jeden produkt pro generování návrhu</p>
+          <p className="text-[10px] text-center text-charcoal/40 mt-2">{dict.results.select_at_least_one}</p>
         )}
       </div>
+
+      {/* Feedback Dialog */}
+      <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
+        <DialogContent className="max-w-[400px] rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-charcoal">{dict.results.feedback_not_helpful}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input 
+              placeholder={dict.results.feedback_placeholder}
+              value={feedbackComment}
+              onChange={(e) => setFeedbackComment(e.target.value)}
+              className="bg-stone-50 border-stone-100 focus:ring-sage/20 rounded-xl"
+            />
+            <Button 
+              onClick={() => handleFeedback('down', feedbackComment)}
+              disabled={isSubmittingFeedback}
+              className="w-full bg-sage hover:bg-sage/90 text-white rounded-xl font-bold"
+            >
+              {isSubmittingFeedback ? <Loader2 className="w-4 h-4 animate-spin" /> : dict.results.feedback_submit}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Studio Editor Dialog */}
       <Dialog open={showStudio} onOpenChange={setShowStudio}>
@@ -460,6 +586,7 @@ export function ResultsView({
               console.log("Saving markers from studio:", markers);
               setShowStudio(false);
             }}
+            dict={dict}
           />
         </DialogContent>
       </Dialog>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getAIRecommendations, getDiscoveryRecommendations, type Product } from "@/lib/recommendation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,140 +11,74 @@ export async function POST(req: NextRequest) {
       budget, 
       recommendations = [], 
       contextual_queries = [],
+      furnishing_level = 50,
+      focus_area = 'full_room',
       limit = 40 
     } = body;
 
-    console.log(`API: Recommending products for ${room} (${style}), budget: ${budget}`);
+    console.log(`API: Recommending products for ${room} (${style}), budget: ${budget}, furnishing: ${furnishing_level}%, focus: ${focus_area}`);
 
-    const allProducts: any[] = [];
-    const seenIds = new Set<string>();
+    // 1. Načtení všech produktů z databáze
+    const query = `
+      SELECT 
+        p.id, p.name, p.brand, p.price_czk, p.image_url, p.affiliate_url,
+        p.style_tags, p.material, p.color, p.category,
+        p.dimensions_cm
+      FROM products p
+      WHERE 1=1
+      ${budget ? 'AND p.price_czk <= ? * 1.3' : ''} 
+    `;
+    
+    const params: any[] = [];
+    if (budget) params.push(budget); // Načteme i produkty lehce nad rozpočtem pro bomby
+    
+    const dbProducts = await db.all(query, params) as any[];
+    
+    // 2. Parsování JSON polí
+    const allProducts: Product[] = dbProducts.map((p: any) => {
+      const dimensions = p.dimensions_cm ? JSON.parse(p.dimensions_cm) : {};
+      return {
+        ...p,
+        style_tags: p.style_tags ? JSON.parse(p.style_tags) : [],
+        width_cm: dimensions.width || dimensions.w || undefined,
+        depth_cm: dimensions.depth || dimensions.d || undefined,
+        height_cm: dimensions.height || dimensions.h || undefined,
+      };
+    });
 
-    // Pomocná funkce pro přidání produktů do seznamu bez duplicit
-    const addProducts = (products: any[]) => {
-      for (const p of products) {
-        if (!seenIds.has(p.id)) {
-          allProducts.push(p);
-          seenIds.add(p.id);
-        }
-      }
-    };
+    console.log(`API: Loaded ${allProducts.length} products from DB`);
 
-    // --- ÚROVEŇ 1: Přímá doporučení (Značky na fotce) ---
+    // 3. Použití Recommendation Engine
+    let result;
+    
     if (recommendations.length > 0) {
-      for (const rec of recommendations) {
-        if (!rec.search_query) continue;
-        
-        // FTS5 vyhledávání pro každou značku - zvýšen limit na 6 pro větší diverzitu
-        // Vylepšená logika vyhledávání: zkusíme nejdřív volnější shodu slov (AND), pak případně OR
-        const cleanQuery = rec.search_query
-          .replace(/[^\w\s]/g, ' ')
-          .split(/\s+/)
-          .filter((w: string) => w.length > 2)
-          .map((w: string) => `${w}*`)
-          .join(' ');
-
-        if (!cleanQuery) continue;
-
-        const query = `
-          SELECT p.*, bm25(products_fts, 10.0, 2.0, 1.0, 1.0, 5.0, 5.0) as rank
-          FROM products p
-          JOIN products_fts f ON p.id = f.id
-          WHERE products_fts MATCH ?
-          ${budget ? 'AND p.price_czk <= ?' : ''}
-          ORDER BY rank
-          LIMIT 8
-        `;
-        
-        const params = [cleanQuery];
-        if (budget) params.push(budget);
-
-        try {
-          let matches = await db.all(query, params) as any[];
-          
-          // Pokud nemáme žádné výsledky, zkusíme méně restriktivní vyhledávání (OR)
-          if (matches.length === 0) {
-            const relaxedQuery = cleanQuery.split(/\s+/).join(' OR ');
-            const relaxedParams = [relaxedQuery];
-            if (budget) relaxedParams.push(budget);
-            matches = await db.all(query, relaxedParams) as any[];
-          }
-          
-          addProducts(matches);
-        } catch (e) {
-          console.error(`FTS error for query "${rec.search_query}":`, e);
-        }
-      }
+      // Režim s AI analýzou - používáme AI recommendations
+      result = await getAIRecommendations(allProducts, {
+        style,
+        room,
+        budget,
+        recommendations,
+        contextual_queries,
+        furnishing_level,
+        focus_area,
+        limit,
+        enableBombs: true,
+        maxBombs: budget < 30000 ? 1 : 2 // Budget users: 1 bomba, ostatní: 2
+      });
+    } else {
+      // Discovery Mode - bez AI
+      result = await getDiscoveryRecommendations(allProducts, room || 'living', budget, limit);
     }
 
-    // --- ÚROVEŇ 2: Kontextová doporučení (Skrytá) ---
-    if (contextual_queries.length > 0 && allProducts.length < limit) {
-      // Rozšíření dotazu o OR pro širší záběr
-      const combinedContextQuery = contextual_queries.map((q: string) => `"${q}"`).join(' OR ');
-      const query = `
-        SELECT p.*, bm25(products_fts, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0) as rank
-        FROM products p
-        JOIN products_fts f ON p.id = f.id
-        WHERE products_fts MATCH ?
-        ${budget ? 'AND p.price_czk <= ?' : ''}
-        ORDER BY rank
-        LIMIT ?
-      `;
-      const params = [combinedContextQuery];
-      if (budget) params.push(budget);
-      params.push(limit - allProducts.length);
+    console.log(`API: Recommendation engine returned ${result.products.length} products + ${result.bombs.length} bombs`);
+    
+    // 4. Kombinace produktů a bomb
+    const finalProducts = [
+      ...result.products,
+      ...result.bombs.map(b => ({ ...b, _isBomb: true })) // Označíme bomby pro frontend
+    ];
 
-      try {
-        const matches = await db.all(query, params) as any[];
-        addProducts(matches);
-      } catch (e) {
-        console.error(`FTS error for contextual queries:`, e);
-      }
-    }
-
-    // --- ÚROVEŇ 3: Discovery (Garantované zaplnění) ---
-    if (allProducts.length < limit) {
-      let query = "SELECT * FROM products WHERE 1=1";
-      const params: any[] = [];
-
-      if (budget) {
-        query += " AND price_czk <= ?";
-        params.push(budget);
-      }
-
-      // Exclude outdoor for indoor rooms
-      const indoorRooms = ['living', 'bedroom', 'kids', 'office'];
-      if (room && indoorRooms.includes(room)) {
-        query += " AND name NOT LIKE '%zahrada%' AND name NOT LIKE '%venkovní%' AND category NOT LIKE '%outdoor%' AND category NOT LIKE '%garden%'";
-      }
-
-      // Přidáme náhodnost, ale preferujeme kategorii odpovídající místnosti
-      let orderBy = "ORDER BY ";
-      if (room === 'living') orderBy += "CASE WHEN category LIKE '%pohovk%' OR category LIKE '%stolek%' THEN 0 ELSE 1 END, ";
-      if (room === 'bedroom') orderBy += "CASE WHEN category LIKE '%postel%' OR category LIKE '%matrac%' THEN 0 ELSE 1 END, ";
-      
-      if (style) {
-        orderBy += `CASE WHEN style_tags LIKE ? THEN 0 ELSE 1 END, `;
-        params.push(`%${style}%`);
-      }
-      
-      orderBy += "RANDOM()";
-      query += ` ${orderBy} LIMIT ?`;
-      params.push(limit - allProducts.length);
-
-      const discovery = await db.all(query, params) as any[];
-      addProducts(discovery);
-    }
-
-    // Finální zpracování produktů
-    const parsedProducts = allProducts.map((p: any) => ({
-      ...p,
-      dimensions_cm: p.dimensions_cm ? JSON.parse(p.dimensions_cm) : null,
-      style_tags: p.style_tags ? JSON.parse(p.style_tags) : [],
-      search_keywords: p.search_keywords ? JSON.parse(p.search_keywords) : [],
-    }));
-
-    console.log(`API: Returned ${parsedProducts.length} products total.`);
-    return NextResponse.json(parsedProducts);
+    return NextResponse.json(finalProducts);
 
   } catch (error) {
     console.error("Recommendation error:", error);

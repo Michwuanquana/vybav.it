@@ -1,15 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UploadZone } from "@/components/UploadZone";
 import { RoomTypeSelector } from "@/components/RoomTypeSelector";
 import { ColorPicker } from "@/components/ColorPicker";
 import { PriceSlider } from "@/components/PriceSlider";
 import { ResultsView } from "@/components/ResultsView";
+import { AnalysisSpinner } from "@/components/AnalysisSpinner";
+import { detectEmptyRoom } from "@/lib/image-heuristics";
 import { 
   Loader2, 
-  Sparkles, 
   BrainCircuit, 
   Info, 
   ArrowLeft,
@@ -25,7 +27,11 @@ import {
   Image as ImageIcon,
   Maximize,
   Layout,
-  Plus
+  Plus,
+  CheckCircle2,
+  Wand,
+  RotateCcw,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +47,7 @@ const getIconForItem = (item: string) => {
   if (lowerItem.includes("obraz") || lowerItem.includes("umění") || lowerItem.includes("dekorace")) return ImageIcon;
   if (lowerItem.includes("zrcadlo")) return Maximize;
   if (lowerItem.includes("koberec")) return Layout;
-  return Sparkles;
+  return Wand;
 };
 
 const DEMO_ANALYSIS = {
@@ -59,12 +65,20 @@ const DEMO_ANALYSIS = {
     windows: "Velké francouzské okno"
   },
   estimated_dimensions: { width_m: 4.5, length_m: 5.2, height_m: 2.6 },
+  furnishing_level: {
+    percentage: 20,
+    category: "empty",
+    detected_items: [],
+    missing_essentials: ["pohovka", "stůl"]
+  },
   recommendations: [
     { 
       item: "Pohovka", 
       reason: "Pro zútulnění prostoru a vytvoření centra místnosti.", 
       suggested_style: "Moderní", 
       suggested_color: "Šedá",
+      priority: 1,
+      size_category: "large",
       placement_coordinates: { x: 500, y: 600 }
     },
     { 
@@ -72,6 +86,8 @@ const DEMO_ANALYSIS = {
       reason: "Doplnění sedací soupravy přírodním prvkem.", 
       suggested_style: "Minimalistický", 
       suggested_color: "Dub",
+      priority: 2,
+      size_category: "medium",
       placement_coordinates: { x: 500, y: 800 }
     }
   ]
@@ -102,16 +118,24 @@ const DEMO_PRODUCTS = [
   }
 ];
 
-export default function Home() {
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+interface HomeClientProps {
+  dict: any;
+  lang: string;
+  initialSessionId?: string;
+  initialSessionData?: any;
+}
+
+export default function HomeClient({ dict, lang, initialSessionId, initialSessionData }: HomeClientProps) {
+  const router = useRouter();
+  const [uploadedImage, setUploadedImage] = useState<string | null>(initialSessionData?.imageUrl || null);
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId || null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAlreadyAnalyzed, setIsAlreadyAnalyzed] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
 
   // Results state
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(initialSessionData?.analysis || null);
   const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -128,8 +152,15 @@ export default function Home() {
   // Preferences state
   const [roomType, setRoomType] = useState<string | null>("living");
   const [colors, setColors] = useState({ primary: "#F0E8D9", secondary: "#7C8F80" });
-  const [budget, setBudget] = useState(25000);
+  const [budget, setBudget] = useState(45000);
   const [showAllMarkers, setShowAllMarkers] = useState(false);
+  const [isEmptyRoom, setIsEmptyRoom] = useState(false);
+  const [showAnalysisSuccess, setShowAnalysisSuccess] = useState(false);
+  
+  // Demo retry state
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoRetryCount, setDemoRetryCount] = useState(0);
+  const MAX_DEMO_RETRIES = 3;
 
   const findProductForRecommendation = (itemKeyword: string) => {
     if (!recommendedProducts || recommendedProducts.length === 0) return null;
@@ -287,8 +318,27 @@ export default function Home() {
     handleUpdateProducts();
   }, []);
 
+  // Auto-start analysis pokud je session načtena z URL ale ještě není analyzována
+  useEffect(() => {
+    if (initialSessionId && uploadedImage && !analysisResult && !isSaving && !isUploading) {
+      console.log("Auto-starting analysis for session:", initialSessionId);
+      handleAnalyze(initialSessionId);
+    }
+  }, [initialSessionId, uploadedImage, analysisResult]);
+
   const handleUpload = async (imageDataUrl: string, file: File) => {
     setIsUploading(true);
+    setAnalysisResult(null);
+    setRecommendedProducts([]);
+    setGeneratedImage(null);
+    setIsEmptyRoom(false);
+    
+    // Detekce demo mode podle názvu souboru
+    const isDemo = file.name.startsWith('demo-');
+    setIsDemoMode(isDemo);
+    if (isDemo) {
+      setDemoRetryCount(0);
+    }
     
     try {
       setHasError(false);
@@ -311,14 +361,88 @@ export default function Home() {
       setUploadedImage(data.imageUrl);
       setIsAlreadyAnalyzed(!!data.isAnalyzed);
       
-      // Auto-start analysis after upload
-      await handleAnalyze(data.sessionId);
+      // Redirect na URL se session ID
+      router.push(`/${lang}/session/${data.sessionId}`);
+      
+      // Lokální heuristika pro prázdnou místnost
+      const empty = await detectEmptyRoom(imageDataUrl);
+      setIsEmptyRoom(empty);
+      
+      // UKONČIT UPLOAD FÁZI ZDE - aby se zobrazila fotka a spodní loader
+      setIsUploading(false);
+
+      // Auto-start analysis po redirectu se provede v useEffect
       
     } catch (error: any) {
       console.error("Upload/Analysis error:", error);
       setHasError(true);
-    } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Pomocná funkce pro převod dataUrl na File
+  const dataUrlToFile = (dataUrl: string, filename: string): File => {
+    const [header, base64Data] = dataUrl.split(',');
+    const mimeMatch = header.match(/:(.*?);/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    return new File([new Blob([bytes], { type: mimeType })], filename, { type: mimeType });
+  };
+
+  // Funkce pro automatické retry s novým demo obrázkem
+  const retryWithNewDemo = async () => {
+    console.log(`Demo retry: Attempt ${demoRetryCount + 1}/${MAX_DEMO_RETRIES}`);
+    setDemoRetryCount(prev => prev + 1);
+    setHasError(false);
+    setIsSaving(true);
+    
+    try {
+      // 1. Stáhneme nový náhodný obrázek
+      const response = await fetch('/api/demo/random');
+      if (!response.ok) throw new Error('Failed to fetch new demo image');
+      
+      const data = await response.json();
+      if (!data.success || !data.dataUrl) throw new Error('No image data');
+      
+      console.log(`Demo retry: Got new image "${data.keyword}"`);
+      
+      // 2. Nahrajeme nový obrázek
+      const file = dataUrlToFile(data.dataUrl, `demo-retry-${Date.now()}.jpg`);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) throw new Error("Upload failed");
+
+      const uploadData = await uploadResponse.json();
+      setSessionId(uploadData.sessionId);
+      setUploadedImage(uploadData.imageUrl);
+      
+      // 3. Spustíme analýzu
+      await handleAnalyze(uploadData.sessionId);
+      
+    } catch (error) {
+      console.error("Demo retry error:", error);
+      
+      // Pokud ještě máme pokusy, zkusíme znovu
+      if (demoRetryCount + 1 < MAX_DEMO_RETRIES) {
+        console.log("Retrying with another image...");
+        await retryWithNewDemo();
+      } else {
+        console.error("All demo retries exhausted");
+        setHasError(true);
+        setIsSaving(false);
+      }
     }
   };
 
@@ -329,16 +453,24 @@ export default function Home() {
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: currentSessionId, roomType }),
+        body: JSON.stringify({ 
+          sessionId: currentSessionId, 
+          roomType,
+          lang: lang 
+        }),
       });
 
       if (!analyzeRes.ok) {
-        setHasError(true);
         throw new Error("Analysis failed");
       }
       
       const analysis = await analyzeRes.json();
+      console.log("Analysis result from API:", JSON.stringify(analysis, null, 2));
+      console.log("Recommendations with coordinates:", analysis.recommendations?.filter((r: any) => r.placement_coordinates));
       setAnalysisResult(analysis);
+      
+      // Reset demo retry count on success
+      setDemoRetryCount(0);
 
       // Nový tříúrovňový algoritmus doporučování přes POST
       const recommendRes = await fetch("/api/products/recommend", {
@@ -350,6 +482,8 @@ export default function Home() {
           budget: budget,
           recommendations: analysis.recommendations,
           contextual_queries: analysis.contextual_queries,
+          furnishing_level: analysis.furnishing_level?.percentage || 50,
+          focus_area: analysis.focus_area || 'full_room',
           limit: 50
         }),
       });
@@ -358,12 +492,68 @@ export default function Home() {
         const products = await recommendRes.json();
         setRecommendedProducts(products);
       }
+      
+      // Úspěšná analýza - zobrazíme notifikaci
+      setShowAnalysisSuccess(true);
+      setTimeout(() => setShowAnalysisSuccess(false), 3000);
+      
     } catch (error) {
       console.error("Analysis error:", error);
+      
+      // V demo módu automaticky zkusíme nový obrázek
+      if (isDemoMode && demoRetryCount < MAX_DEMO_RETRIES) {
+        console.log("Demo mode: Auto-retrying with new image...");
+        await retryWithNewDemo();
+        return; // Neukončujeme isSaving, retryWithNewDemo to zvládne
+      }
+      
       setHasError(true);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleReset = async () => {
+    if (!sessionId) {
+      // Pokud není session, jen redirect na homepage
+      router.push(`/${lang}`);
+      return;
+    }
+
+    try {
+      // Smazání session z databáze
+      await fetch(`/api/session/${sessionId}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+    }
+
+    // Redirect na homepage
+    router.push(`/${lang}`);
+  };
+
+  // Znovu - resetuje jen design (generated image), ale zachová session
+  const handleRestartDesign = () => {
+    setGeneratedImage(null);
+    setVisualizingId(null);
+    setPlacement(null);
+    setSliderPosition(50);
+    setHasError(false);
+  };
+
+  // Vyčistit - smaže všechno včetně cache a vrátí na titulní stránku
+  const handleClearAll = async () => {
+    if (sessionId) {
+      try {
+        await fetch(`/api/session/${sessionId}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error("Failed to delete session:", error);
+      }
+    }
+    router.push(`/${lang}`);
   };
 
   const handleLoadMore = async () => {
@@ -380,6 +570,8 @@ export default function Home() {
           budget: budget,
           recommendations: analysisResult.recommendations,
           contextual_queries: analysisResult.contextual_queries,
+          furnishing_level: analysisResult.furnishing_level?.percentage || 50,
+          focus_area: analysisResult.focus_area || 'full_room',
           limit: recommendedProducts.length + 24 // Načteme o 24 víc
         }),
       });
@@ -412,6 +604,28 @@ export default function Home() {
           <div className="relative max-w-full max-h-full flex items-center justify-center group/stage">
             {uploadedImage ? (
               <div className="relative shadow-2xl rounded-lg overflow-hidden group/image-container">
+                {/* Floating Buttons - Znovu + Vyčistit */}
+                {(analysisResult || generatedImage) && (
+                  <div className="absolute top-4 right-4 flex gap-2 z-50">
+                    {/* Znovu - resetuje jen design */}
+                    <button
+                      onClick={handleRestartDesign}
+                      className="group/restart bg-sage/90 hover:bg-sage text-white p-3 rounded-full shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+                      title={dict.common.restart_design}
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Vyčistit - smaže všechno */}
+                    <button
+                      onClick={handleClearAll}
+                      className="group/clear bg-terracotta/90 hover:bg-terracotta text-white p-3 rounded-full shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+                      title={dict.common.clear_all}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
                 {generatedImage ? (
                   <div className="relative overflow-hidden bg-charcoal/20">
                     {/* Original Image (Before) */}
@@ -444,8 +658,8 @@ export default function Home() {
                         </div>
                       </div>
                       {/* Labels */}
-                      <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest pointer-events-none">Původní</div>
-                      <div className="absolute top-4 left-4 bg-terracotta/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest pointer-events-none">Návrh</div>
+                      <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest pointer-events-none">{dict.common.original}</div>
+                      <div className="absolute top-4 left-4 bg-terracotta/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest pointer-events-none">{dict.common.design}</div>
                     </div>
                     
                     <input 
@@ -458,25 +672,63 @@ export default function Home() {
                     />
                   </div>
                 ) : (
-                  <img 
-                    src={uploadedImage} 
-                    alt="Room" 
-                    className="block max-w-full max-h-[85vh] w-auto h-auto transition-all duration-500" 
-                  />
+                  <div className="relative">
+                    <img 
+                      src={uploadedImage} 
+                      alt="Room" 
+                      className="block max-w-full max-h-[85vh] w-auto h-auto transition-all duration-500" 
+                    />
+                    
+                    {/* Heuristická notifikace pro prázdnou místnost */}
+                    {isEmptyRoom && !analysisResult && (
+                      <div className="absolute top-6 left-6 right-6 animate-in slide-in-from-top-4 duration-500 z-30">
+                        <div className="bg-white/90 backdrop-blur-md border border-sage/20 p-4 rounded-2xl shadow-xl flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-sage/10 flex items-center justify-center shrink-0">
+                              <Wand className="w-5 h-5 text-sage" />
+                            </div>
+                          <div>
+                            <p className="font-bold text-sm text-charcoal">{dict.home.empty_room_detected}</p>
+                            <p className="text-xs text-stone-500">{dict.home.empty_room_desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Success Notification after Analysis */}
+                {showAnalysisSuccess && (
+                  <div className="absolute top-6 left-6 right-6 animate-in slide-in-from-top-4 duration-500 z-40">
+                    <div className="bg-sage text-white p-4 rounded-2xl shadow-xl flex items-center gap-4 border border-white/20">
+                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">{dict.analysis.success_title}</p>
+                        <p className="text-xs opacity-90">{dict.analysis.success_desc}</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* AI Značky (Markers) - Now inside the same relative container as the image */}
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="relative w-full h-full">
-                    {analysisResult && !isGenerating && !isUploading && analysisResult.recommendations
-                      .slice(0, showAllMarkers ? 100 : 6)
+                    {analysisResult && !isGenerating && !isUploading && !isSaving && analysisResult.recommendations
+                      ?.slice(0, showAllMarkers ? 100 : 6)
                       .map((rec: any, i: number) => {
-                        if (!rec.placement_coordinates) return null;
+                        if (!rec.placement_coordinates) {
+                          console.log("Marker missing coordinates:", rec);
+                          return null;
+                        }
                         const product = findProductForRecommendation(rec.item);
-                        if (!product) return null;
                         
                         // Hierarchie velikostí: hlavní nábytek je větší
                         const isMainFurniture = ["pohovka", "sofa", "stůl", "postel", "skříň"].some(kw => rec.item.toLowerCase().includes(kw));
+                        
+                        // Inteligentní pozicování tooltipu - vlevo pokud je marker vpravo
+                        const markerX = rec.placement_coordinates.x / 10; // 0-100%
+                        const showTooltipLeft = markerX > 55; // Pokud marker je více než 55% vpravo, tooltip vlevo
                         
                         return (
                           <div 
@@ -492,7 +744,7 @@ export default function Home() {
                             }}
                             onMouseEnter={() => setActiveCategory(rec.item)}
                             onMouseLeave={() => setActiveCategory(null)}
-                            onClick={() => handleVisualize(product, rec.placement_coordinates!)}
+                            onClick={() => product && handleVisualize(product, rec.placement_coordinates!)}
                           >
                             <div className="relative -translate-x-1/2 -translate-y-1/2">
                               <div className={cn(
@@ -507,26 +759,42 @@ export default function Home() {
                                 {React.createElement(getIconForItem(rec.item), { className: isMainFurniture ? "w-6 h-6" : "w-5 h-5" })}
                               </div>
                               
-                              {/* Tooltip - Always visible on hover */}
+                              {/* Tooltip - Inteligentní pozice: vlevo nebo vpravo podle pozice markeru */}
                               <div className={cn(
-                                "absolute bottom-full left-1/2 -translate-x-1/2 mb-3 transition-all duration-300 pointer-events-none z-40",
-                                activeCategory === rec.item ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                                "absolute top-1/2 -translate-y-1/2 transition-all duration-300 pointer-events-none z-50",
+                                showTooltipLeft 
+                                  ? "right-full mr-3" 
+                                  : "left-full ml-3",
+                                activeCategory === rec.item 
+                                  ? "opacity-100" 
+                                  : "opacity-0",
+                                activeCategory === rec.item
+                                  ? (showTooltipLeft ? "translate-x-0" : "translate-x-0")
+                                  : (showTooltipLeft ? "translate-x-2" : "-translate-x-2")
                               )}>
-                                <div className="bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-sage/10 w-56 max-w-[70vw]">
-                                  <p className="text-xs font-bold text-sage uppercase tracking-wider mb-1">Doporučení</p>
+                                <div className="bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-sage/10 w-52">
+                                  <p className="text-xs font-bold text-sage uppercase tracking-wider mb-1">{dict.results.recommendation || "Doporučení"}</p>
                                   <p className="text-sm font-bold text-charcoal mb-1 capitalize">{rec.item}</p>
-                                  <p className="text-[10px] text-charcoal/60 leading-tight">{rec.reason}</p>
-                                  <div className="mt-2 flex items-center gap-2 pt-2 border-t border-sage/10">
-                                    <div className="w-8 h-8 rounded bg-sand overflow-hidden flex-shrink-0">
-                                      <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                                  <p className="text-[10px] text-charcoal/60 leading-tight line-clamp-2">{rec.reason}</p>
+                                  {product && (
+                                    <div className="mt-2 flex items-center gap-2 pt-2 border-t border-sage/10">
+                                      <div className="w-8 h-8 rounded bg-sand overflow-hidden flex-shrink-0">
+                                        <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-bold text-charcoal truncate">{product.name}</p>
+                                        <span className="text-[10px] font-medium text-sage">{dict.common.click_to_visualize}</span>
+                                      </div>
                                     </div>
-                                    <div className="min-w-0">
-                                      <p className="text-[10px] font-bold text-charcoal truncate">{product.name}</p>
-                                      <span className="text-[10px] font-medium text-sage">Klikněte pro vizualizaci</span>
-                                    </div>
-                                  </div>
+                                  )}
                                 </div>
-                                <div className="w-2 h-2 bg-white rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 border-r border-b border-sage/10" />
+                                {/* Šipka - mění stranu podle pozice */}
+                                <div className={cn(
+                                  "w-2 h-2 bg-white rotate-45 absolute top-1/2 -translate-y-1/2 border-sage/10",
+                                  showTooltipLeft 
+                                    ? "-right-1 border-r border-t" 
+                                    : "-left-1 border-l border-b"
+                                )} />
                               </div>
                             </div>
                           </div>
@@ -541,7 +809,7 @@ export default function Home() {
                     className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-sage/10 text-sage text-xs font-bold hover:bg-white transition-all flex items-center gap-2 z-40"
                   >
                     <Plus className="w-3 h-3" />
-                    Zobrazit více doporučení ({analysisResult.recommendations.length - 6})
+                    {dict.common.show_more_recommendations} ({analysisResult.recommendations.length - 6})
                   </button>
                 )}
               </div>
@@ -555,26 +823,27 @@ export default function Home() {
                   setRecommendedProducts([]);
                   setGeneratedImage(null);
                 }}
+                dict={dict}
               />
             )}
 
             {isGenerating && (
               <div className="absolute inset-0 z-50 bg-charcoal/20 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-500">
                 <div className="bg-white p-8 rounded-3xl shadow-2xl border border-sage/10 flex flex-col items-center gap-6 max-w-sm text-center">
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-terracotta/10 rounded-full flex items-center justify-center">
-                      <Sparkles className="w-10 h-10 text-terracotta animate-pulse" />
-                    </div>
+                    <div className="relative">
+                      <div className="w-20 h-20 bg-terracotta/10 rounded-full flex items-center justify-center">
+                        <Wand className="w-10 h-10 text-terracotta animate-pulse" />
+                      </div>
                     <div className="absolute inset-0 border-4 border-terracotta/20 border-t-terracotta rounded-full animate-spin" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xl font-bold text-charcoal">{generationPhase || "Generujeme návrh"}</p>
+                    <p className="text-xl font-bold text-charcoal">{generationPhase || dict.common.generating}</p>
                     <div className="flex gap-1 justify-center">
                       <div className="w-1.5 h-1.5 bg-terracotta rounded-full animate-bounce [animation-delay:-0.3s]" />
                       <div className="w-1.5 h-1.5 bg-terracotta rounded-full animate-bounce [animation-delay:-0.15s]" />
                       <div className="w-1.5 h-1.5 bg-terracotta rounded-full animate-bounce" />
                     </div>
-                    <p className="text-xs text-charcoal/40 mt-4 italic">Může to trvat až 30 sekund, ale výsledek bude stát za to.</p>
+                    <p className="text-xs text-charcoal/40 mt-4 italic">{dict.common.ai_working_note}</p>
                   </div>
                 </div>
               </div>
@@ -587,8 +856,8 @@ export default function Home() {
                     <BrainCircuit className="w-8 h-8 text-red-400" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-lg font-bold text-charcoal">Něco se nepovedlo</p>
-                    <p className="text-sm text-charcoal/60">Omlouváme se, ale AI model momentálně neodpovídá. Zkuste to prosím znovu.</p>
+                    <p className="text-lg font-bold text-charcoal">{dict.common.something_wrong}</p>
+                    <p className="text-sm text-charcoal/60">{dict.common.error_message}</p>
                   </div>
                   <Button 
                     onClick={() => {
@@ -601,7 +870,7 @@ export default function Home() {
                     }}
                     className="bg-terracotta hover:bg-terracotta/90 text-white rounded-full px-8"
                   >
-                    Zkusit znovu
+                    {dict.common.try_again}
                   </Button>
                 </div>
               </div>
@@ -617,7 +886,7 @@ export default function Home() {
                   className="bg-white/90 text-charcoal hover:bg-white shadow-xl rounded-full px-6 border border-sage/10"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Zpět
+                  {dict.common.back}
                 </Button>
                 
                 <Button 
@@ -632,18 +901,18 @@ export default function Home() {
                   className="bg-sage text-white hover:bg-sage/90 shadow-xl rounded-full px-6"
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  Stáhnout
+                  {dict.common.download}
                 </Button>
 
                 <Button 
                   onClick={() => {
                     navigator.clipboard.writeText(window.location.href);
-                    alert("Odkaz na návrh byl zkopírován do schránky.");
+                    alert(dict.common.link_copied);
                   }}
                   className="bg-terracotta text-white hover:bg-terracotta/90 shadow-xl rounded-full px-6"
                 >
                   <Share2 className="w-4 h-4 mr-2" />
-                  Sdílet
+                  {dict.common.share}
                 </Button>
               </div>
             )}
@@ -656,10 +925,21 @@ export default function Home() {
         <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
           {/* Settings Row - More compact */}
           <div className="flex flex-col xl:flex-row gap-6 pb-6 border-b border-stone-100 items-start xl:items-center justify-between">
+            {sessionId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                className="text-charcoal/60 hover:text-charcoal hover:bg-stone-100 rounded-full px-4"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {dict.common?.reset || "Začít znovu"}
+              </Button>
+            )}
             <div className="flex-1 w-full xl:w-auto space-y-2 xl:max-w-[240px]">
               <h2 className="text-[9px] font-bold text-charcoal/30 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-1 h-2.5 bg-terracotta rounded-full"/>
-                Rozpočet
+                {dict.home.budget_label}
               </h2>
               <PriceSlider 
                 value={budget} 
@@ -674,7 +954,7 @@ export default function Home() {
             <div className="flex-1 w-full xl:w-auto space-y-2">
               <h2 className="text-[9px] font-bold text-charcoal/30 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-1 h-2.5 bg-sage rounded-full"/>
-                Typ místnosti
+                {dict.home.room_type_label}
               </h2>
               <RoomTypeSelector 
                 selected={roomType} 
@@ -682,6 +962,7 @@ export default function Home() {
                   setRoomType(val);
                   setTimeout(handleUpdateProducts, 150);
                 }} 
+                dict={dict}
               />
             </div>
           </div>
@@ -690,13 +971,13 @@ export default function Home() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-charcoal flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-sage" />
-                {analysisResult ? "Váš inteligentní návrh" : "Doporučené produkty"}
+                <Wand className="w-4 h-4 text-sage" />
+                {analysisResult ? dict.results.title : dict.results.recommended_title}
               </h2>
               {(isSaving || isUploading) && (
                 <div className="flex items-center gap-2 text-sage animate-pulse">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs font-bold uppercase tracking-widest">Zpracovávám...</span>
+                  <span className="text-xs font-bold uppercase tracking-widest">{dict.common.processing}</span>
                 </div>
               )}
             </div>
@@ -708,10 +989,14 @@ export default function Home() {
                 analysis={analysisResult}
                 products={recommendedProducts}
                 onBack={() => {
-                  setAnalysisResult(null);
-                  setUploadedImage(null);
-                  setGeneratedImage(null);
-                  handleUpdateProducts();
+                  if (generatedImage) {
+                    setGeneratedImage(null);
+                  } else {
+                    setAnalysisResult(null);
+                    setUploadedImage(null);
+                    setRecommendedProducts([]);
+                    handleUpdateProducts();
+                  }
                 }}
                 onGenerateFullDesign={handleGenerateFullDesign}
                 isGenerating={isGenerating}
@@ -720,6 +1005,7 @@ export default function Home() {
                 activeCategory={activeCategory}
                 budget={budget}
                 roomType={roomType}
+                dict={dict}
               />
             ) : (isSaving || isUploading) ? (
               <div className="flex flex-col items-center justify-center py-20 text-center space-y-6 bg-stone-50/50 rounded-3xl border border-stone-100 animate-in fade-in duration-500">
@@ -732,26 +1018,26 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-lg font-bold text-charcoal">Analyzuji váš prostor</p>
+                  <p className="text-lg font-bold text-charcoal">{dict.analysis.analyzing_title}</p>
                   <p className="text-stone-500 max-w-xs mx-auto text-sm">
-                    Naše inteligentní systémy právě studují rozložení místnosti a hledají nejvhodnější kousky nábytku...
+                    {dict.analysis.analyzing_desc}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center space-y-6 bg-white/40 backdrop-blur-sm rounded-3xl border border-dashed border-sage/20">
-                <div className="relative">
-                  <div className="w-20 h-20 bg-sage/5 rounded-full flex items-center justify-center">
-                    <Sofa className="w-10 h-10 text-sage/20" />
+                  <div className="relative">
+                    <div className="w-20 h-20 bg-sage/5 rounded-full flex items-center justify-center">
+                      <Sofa className="w-10 h-10 text-sage/20" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm">
+                      <Wand className="w-4 h-4 text-terracotta/40" />
+                    </div>
                   </div>
-                  <div className="absolute -top-1 -right-1 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm">
-                    <Sparkles className="w-4 h-4 text-terracotta/40" />
-                  </div>
-                </div>
                 <div className="space-y-2">
-                  <p className="text-lg font-bold text-charcoal">Váš inteligentní návrh</p>
+                  <p className="text-lg font-bold text-charcoal">{dict.results.title}</p>
                   <p className="text-stone-500 max-w-xs mx-auto text-sm">
-                    Nahrajte fotografii místnosti pro spuštění AI analýzy. Váš osobní návrh interiéru se zobrazí právě zde.
+                    {dict.results.empty_desc}
                   </p>
                 </div>
               </div>
@@ -759,6 +1045,24 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Global Analysis Spinner (Overlay during upload) */}
+      {isUploading && (
+        <AnalysisSpinner 
+          isUploading={true} 
+          variant="overlay"
+          dict={dict}
+        />
+      )}
+
+      {/* Bottom Pill Spinner (During AI analysis) */}
+      {isSaving && (
+        <AnalysisSpinner 
+          isSaving={true} 
+          variant="bottom"
+          dict={dict}
+        />
+      )}
     </main>
   );
 }

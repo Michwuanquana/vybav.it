@@ -90,6 +90,17 @@
             transition: transform 0.2s, box-shadow 0.2s;
         }
         
+        .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
         button:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
@@ -245,7 +256,11 @@
             </div>
         </div>
         
-        <button onclick="generateLinks()">Generovat odkazy</button>
+        <div class="btn-group">
+            <button onclick="generateLinks()" style="flex: 2;">🚀 Generovat odkazy</button>
+            <button onclick="randomizeValues()" class="btn-secondary" style="flex: 1; margin-top: 0;">🎲 Zamíchat</button>
+        </div>
+        <button onclick="fillRandomKeywords()" class="btn-secondary" style="background: #28a745;">✨ Náhodný výběr z datasetu</button>
         
         <div id="output" class="hidden">
             <div class="output-header">
@@ -339,6 +354,80 @@
             
             // Scrollovat k výstupu
             document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+
+            // Aktualizace URL parametrů
+            const params = new URLSearchParams();
+            params.set('template', urlTemplate);
+            params.set('values', values.join(','));
+            params.set('mode', activeMode);
+            window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+        }
+
+        // Načtení parametrů z URL při startu
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const template = params.get('template');
+            const values = params.get('values');
+            const mode = params.get('mode');
+
+            if (template) document.getElementById('urlTemplate').value = template;
+            if (values) {
+                if (mode === 'triple') {
+                    const v = values.split(',');
+                    document.getElementById('value1').value = v[0] || '';
+                    document.getElementById('value2').value = v[1] || '';
+                    document.getElementById('value3').value = v[2] || '';
+                    // Přepnout na triple mode
+                    document.querySelector('[data-mode="triple"]').click();
+                } else {
+                    document.getElementById('values').value = values.split(',').join(', ');
+                }
+                generateLinks();
+            }
+        });
+
+        const KEYWORDS = [
+            "unfurnished apartment interior", "empty room for virtual staging", "vacant property photography", "newly renovated empty room", "move-in ready empty apartment", "real estate photography empty house", "empty condo interior wide angle", "unfurnished living room gallery", "vacant home interior shots", "empty luxury penthouse interior", "white box space architecture", "empty rental unit photography", "pre-purchase home inspection empty room", "empty model home interior", "unfurnished studio apartment layout", "new build empty room", "shell and core office space", "empty room with hardwood floors", "freshly painted empty room", "empty room with floor to ceiling windows", "minimalist empty interior architecture", "empty loft space industrial", "new construction interior no furniture", "empty room with exposed brick", "modern empty interior 8k", "empty room with recessed lighting", "clean slate interior design", "empty room with crown molding", "unfurnished attic room", "empty basement renovation", "empty master bedroom interior", "unfurnished nursery room", "empty dining room space", "vacant home office room", "empty sunroom interior", "unfurnished walk-in closet", "empty guest room photography", "vacant hallway interior", "empty open plan living area", "unfurnished kitchen and dining space", "empty playroom interior", "vacant library room", "empty laundry room interior", "unfurnished corridor architecture", "empty foyer interior", "prázdný pokoj novostavba", "nezařízený byt interiér", "pokoj po rekonstrukci prázdný", "volný byt k pronájmu foto", "prázdný obývací pokoj bílé stěny", "nezařízená ložnice podlaha", "prázdný podkrovní byt", "developerský projekt vzorový byt prázdný", "prázdné kancelářské prostory", "nebytový prostor prázdný", "prázdná garsonka k nastěhování", "interiér domu před vybavením", "prázdná hala v domě", "nezařízený dětský pokoj", "prázdná jídelna s oknem", "empty room morning sunlight", "vacant room golden hour lighting", "empty room harsh shadows", "unfurnished room overcast day", "empty room artificial lighting night", "vacant room soft diffused light", "empty room sunset view", "unfurnished room high contrast", "empty room moody lighting", "vacant room bright airy interior", "empty room corner view", "vacant room eye level shot", "empty room low angle perspective", "unfurnished room top down view", "empty room symmetrical shot", "vacant room wide angle 16mm", "empty room panoramic view", "unfurnished room vanishing point", "empty room architectural photography", "vacant room fisheye lens", "empty scandinavian interior", "vacant industrial loft space", "empty minimalist concrete room", "unfurnished rustic room wood beams", "empty mid-century modern room", "vacant bohemian style empty room", "empty room with marble floors", "unfurnished room with grey walls", "empty room with dark parquet", "vacant room with french windows", "site:unsplash.com \"empty room\"", "site:pexels.com \"unfurnished\"", "\"virtual staging\" before and after empty", "\"raw space\" interior photography", "\"blank canvas\" interior design", "\"empty shell\" apartment", "\"vacant\" residential interior", "\"no furniture\" room photo", "\"cleared room\" interior", "\"empty space\" home staging"
+        ];
+
+        function randomizeValues() {
+            const activeMode = document.querySelector('.mode-btn.active').dataset.mode;
+            if (activeMode === 'textarea') {
+                const textarea = document.getElementById('values');
+                let values = textarea.value.split(',').map(v => v.trim()).filter(v => v);
+                for (let i = values.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [values[i], values[j]] = [values[j], values[i]];
+                }
+                textarea.value = values.join(', ');
+            } else {
+                const v1 = document.getElementById('value1');
+                const v2 = document.getElementById('value2');
+                const v3 = document.getElementById('value3');
+                let values = [v1.value, v2.value, v3.value].filter(v => v);
+                for (let i = values.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [values[i], values[j]] = [values[j], values[i]];
+                }
+                v1.value = values[0] || '';
+                v2.value = values[1] || '';
+                v3.value = values[2] || '';
+            }
+        }
+
+        function fillRandomKeywords() {
+            const shuffled = [...KEYWORDS].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 5);
+            
+            const activeMode = document.querySelector('.mode-btn.active').dataset.mode;
+            if (activeMode === 'textarea') {
+                document.getElementById('values').value = selected.join(', ');
+            } else {
+                document.getElementById('value1').value = selected[0] || '';
+                document.getElementById('value2').value = selected[1] || '';
+                document.getElementById('value3').value = selected[2] || '';
+            }
+            generateLinks();
         }
         
         // Enter v textarea nebo inputech pro generování

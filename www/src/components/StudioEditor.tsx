@@ -24,9 +24,10 @@ interface StudioEditorProps {
   initialMarkers?: Marker[];
   onSave: (markers: Marker[]) => void;
   onClose: () => void;
+  dict: any;
 }
 
-export function StudioEditor({ roomImageUrl, initialMarkers = [], onSave, onClose }: StudioEditorProps) {
+export function StudioEditor({ roomImageUrl, initialMarkers = [], onSave, onClose, dict }: StudioEditorProps) {
   const [markers, setMarkers] = useState<Marker[]>(initialMarkers);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +43,7 @@ export function StudioEditor({ roomImageUrl, initialMarkers = [], onSave, onClos
       id: Math.random().toString(36).substr(2, 9),
       x,
       y,
-      label: "Nový bod",
+      label: dict.studio.new_point,
     };
 
     setMarkers([...markers, newMarker]);
@@ -59,13 +60,13 @@ export function StudioEditor({ roomImageUrl, initialMarkers = [], onSave, onClos
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold">Studio Editor</h2>
+          <h2 className="text-lg font-semibold">{dict.studio.title}</h2>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>Zrušit</Button>
+          <Button variant="outline" size="sm" onClick={onClose}>{dict.common.cancel}</Button>
           <Button size="sm" onClick={() => onSave(markers)}>
             <Save className="w-4 h-4 mr-2" />
-            Uložit návrh
+            {dict.studio.save_design}
           </Button>
         </div>
       </div>
@@ -110,13 +111,13 @@ export function StudioEditor({ roomImageUrl, initialMarkers = [], onSave, onClos
         <div className="w-80 border-l bg-card p-4 overflow-y-auto">
           <h3 className="font-medium mb-4 flex items-center gap-2">
             <MousePointer2 className="w-4 h-4" />
-            Prvky v místnosti
+            {dict.studio.marker_label}
           </h3>
           
           <div className="space-y-3">
             {markers.length === 0 && (
               <p className="text-sm text-muted-foreground italic">
-                Klikněte do fotky pro přidání nového prvku.
+                {dict.studio.click_to_add || "Klikněte do fotky pro přidání nového prvku."}
               </p>
             )}
             
@@ -142,7 +143,7 @@ export function StudioEditor({ roomImageUrl, initialMarkers = [], onSave, onClos
                       }}
                     />
                     <span className="text-[10px] text-muted-foreground">
-                      Pozice: {Math.round(marker.x)}%, {Math.round(marker.y)}%
+                      {dict.studio.position}: {Math.round(marker.x)}%, {Math.round(marker.y)}%
                     </span>
                   </div>
                   <Button 

@@ -19,7 +19,11 @@ Informace o schématu, migracích a importu produktových dat (IKEA, JYSK).
 ### 🤖 [AI Prompty](PROMPTS.md)
 Reference promptů pro analýzu a vizualizaci interiérů.
 
-### 📝 [Progress Log](progress.md)
+### � [AI Backend](AI_BACKEND.md)
+Strategie pro Python backend, inpainting a využití `google-genai` SDK.
+### 🔍 [Testovací klíčová slova](TEST_KEYWORDS.md)
+Seznam 100 výrazů pro vyhledávání prázdných místností pro testovací dataset.
+### �📝 [Progress Log](progress.md)
 Historie vývoje, dokončené sprinty a plánované úkoly.
 
 ### 🛠️ [CLAUDE.md](CLAUDE.md)

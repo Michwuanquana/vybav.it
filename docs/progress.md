@@ -4,6 +4,165 @@ Zápisy z každého vývojového runu. Nejnovější nahoře.
 
 ---
 
+## [2026-01-05] - Sprint 16: Centralizovaný Recommendation System
+
+### Dokončeno
+- [x] **Recommendation System Architecture:** Vytvořen kompletní modul `lib/recommendation/` pro centralizovanou logiku doporučování.
+- [x] **Strategie:**
+    - **Budget Strategy** (`strategies/budget.ts`): Dynamické "bomby" (upsell) podle cenového pásma uživatele.
+      - Budget (<20k): +10-15%, max 1 bomba
+      - Mid (20-60k): +10-20%, max 2 bomby
+      - Premium (60k+): +15-25%, max 2 bomby
+    - **Style Strategy** (`strategies/style.ts`): Fuzzy matching stylů s fallback na příbuzné styly.
+    - **Furnishing Strategy** (`strategies/furnishing.ts`): Prioritizace produktů podle zaplněnosti místnosti (prázdné = velký nábytek, plné = doplňky).
+    - **FTS Strategy** (`strategies/fts.ts`): Wrapper pro SQLite FTS5 s AND/OR fallback logikou.
+- [x] **Recommendation Engine** (`engine.ts`): Hlavní orchestrace se skórovacím systémem (styl + AI shoda + velikost + cena = 0-240 bodů).
+- [x] **API Refaktoring:** `/api/products/recommend` nyní používá centralizovaný engine místo duplicitní logiky.
+- [x] **Helpers:** `getDiscoveryRecommendations()` pro discovery mode, `getAIRecommendations()` pro režim s analýzou.
+- [x] **Typy:** Kompletní TypeScript interface (`Product`, `RecommendationConfig`, `BombConfig`, `ProductScore`).
+
+### Technické detaily
+- **Skórovací systém:**
+  - Styl: 0-100 bodů (přímá shoda nebo příbuzné styly)
+  - AI doporučení: 0-100 bodů (shoda názvu + styl + barva + priorita)
+  - Zaplněnost: 0-30 bodů (velký nábytek v prázdné místnosti = +30)
+  - Cena: 0-10 bodů (levnější = lepší)
+- **Bomby:** Identifikují se MIMO rozpočet, ale v dynamickém pásmu. Seřazené podle skóre.
+- **FTS5:** Zachována původní logika s BM25 ranking a relaxed fallback.
+
+### Soubory vytvořeny
+1. [lib/recommendation/types.ts](www/src/lib/recommendation/types.ts)
+2. [lib/recommendation/strategies/budget.ts](www/src/lib/recommendation/strategies/budget.ts)
+3. [lib/recommendation/strategies/style.ts](www/src/lib/recommendation/strategies/style.ts)
+4. [lib/recommendation/strategies/furnishing.ts](www/src/lib/recommendation/strategies/furnishing.ts)
+5. [lib/recommendation/strategies/fts.ts](www/src/lib/recommendation/strategies/fts.ts)
+6. [lib/recommendation/engine.ts](www/src/lib/recommendation/engine.ts)
+7. [lib/recommendation/index.ts](www/src/lib/recommendation/index.ts)
+
+### Soubory upraveny
+- [/api/products/recommend/route.ts](www/src/app/api/products/recommend/route.ts): Kompletně přepsáno na použití recommendation engine (~200 řádků → ~70 řádků).
+
+### Výhody nové architektury
+✅ Jedna pravda — logika doporučování na jednom místě  
+✅ Snadno testovatelné — každá strategie je izolovaná  
+✅ Konfigurovatelné — bomby, limity, váhy se nastavují v config objektu  
+✅ Rozšiřitelné — nové strategie (např. seasonal, trending) se přidávají snadno  
+✅ Type-safe — kompletní TypeScript coverage
+
+---
+
+## [2026-01-05] - Sprint 15: UI Floating Controls
+
+### Dokončeno
+- [x] **Floating Buttons:** Implementovány 2 kruhová tlačítka v pravém horním rohu nad obrázkem (design: Modern Concierge):
+    - **"Znovu"** (RotateCcw ikona, sage barva) — resetuje jen design/návrh, zachová session a analýzu.
+    - **"Vyčistit"** (X ikona, terracotta barva) — smaže vše včetně cache, vrátí na titulní stránku.
+- [x] **Slovníkové klíče:** Přidány lokalizace `restart_design` a `clear_all` do cs.json a en.json.
+- [x] **Handler logika:**
+    - `handleRestartDesign()` — resetuje `generatedImage`, `visualizingId`, `placement`, slider a error stav.
+    - `handleClearAll()` — smaže session z DB a vrátí na homepage.
+- [x] **Responsive design:** Buttons se zobrazují pouze pokud existuje analýza nebo vygenerovaný obrázek (podmínka `(analysisResult || generatedImage)`).
+- [x] **Styling:** Glassmorphism design s `backdrop-blur-md`, poloprůhledné pozadí a hover/active stavy (scale animace).
+- [x] **Build & Test:** Projekt se builduje bez chyb, dev server běží na `localhost:3000`.
+
+### Technické detaily
+- **Ikony:** `RotateCcw` (znovu) a `X` (vyčistit) z lucide-react.
+- **Podmínka zobrazení:** Buttons se zobrazují v `group/image-container` pouze pokud `(analysisResult || generatedImage)`.
+- **Styling:** Brand barvy (sage #5D7A66, terracotta #C1664E), jemné stíny a animace.
+
+### Soubory upraveny
+- [HomeClient.tsx](www/src/app/[lang]/HomeClient.tsx): Přidáno `handleRestartDesign()`, `handleClearAll()`, ikony, floating buttons.
+- [cs.json](www/src/dictionaries/cs.json): Nové klíče `restart_design`, `clear_all`.
+- [en.json](www/src/dictionaries/en.json): Nové klíče `restart_design`, `clear_all`.
+
+---
+
+## [2026-01-04] - Sprint 14: Feedback System & Language Consistency
+
+### Dokončeno
+- [x] **Language Consistency:** Gemini nyní dostává instrukci pro konkrétní jazyk (cs/en) a vrací celou odpověď v tomto jazyce.
+- [x] **DB-UI Language Decoupling:** `search_query` je nyní vynuceně v češtině pro správné párování s databází, zatímco `item_label` je v jazyce uživatele.
+- [x] **Feedback System (In Progress):** Implementace palec nahoru/dolů pro hodnocení analýzy.
+- [x] **Negative Feedback Dialog:** Přidáno okno pro nepovinné sdělení důvodu nespokojenosti.
+
+---
+
+## [2026-01-04] - Sprint 14: Feedback System & Language Consistency
+
+### Dokončeno
+- [x] **Language Consistency:** Gemini nyní dostává instrukci pro konkrétní jazyk (cs/en) a vrací celou odpověď v tomto jazyce.
+- [x] **DB-UI Language Decoupling:** `search_query` je nyní vynuceně v češtině pro správné párování s databází, zatímco `item_label` je v jazyce uživatele.
+- [x] **Feedback System:** Implementace palec nahoru/dolů pro hodnocení analýzy s ukládáním do DB.
+- [x] **Negative Feedback Dialog:** Přidáno okno pro nepovinné sdělení důvodu nespokojenosti.
+- [x] **Testing Protocol:** Vytvořen [docs/TESTING.md](docs/TESTING.md) - POVINNÝ checklist před každým deploymentem.
+
+### ⚠️ DŮLEŽITÉ: Testovací Protokol
+**Od tohoto okamžiku KAŽDÝ deploy MUSÍ splňovat požadavky v [docs/TESTING.md](docs/TESTING.md).**
+- Minimálně: Build check + Smoke test + Critical path
+- Při změně AI promptu: Kompletní regression testing
+- Agent MUSÍ projít checklist před merge do main
+
+---
+
+## [2026-01-04] - Sprint 13: Intelligent Prioritization & Furnishing Analysis
+
+### Dokončeno
+- [x] **Furnishing Level Detection:** Gemini AI nyní analyzuje úroveň zabydlenosti místnosti (0-100%).
+- [x] **Smart Prioritization:** Implementována logika řazení doporučení:
+    - **Prázdné místnosti (<35%):** Prioritizují velký nábytek (pohovky, postele, stoly, skříně).
+    - **Plné místnosti (>75%):** Prioritizují doplňky, dekorace, osvětlení a textilie.
+- [x] **Prompt Engineering:** Rozšířen `ANALYSIS_PROMPT` o instrukce pro prioritizaci a kategorizaci velikosti produktů.
+- [x] **Backend Logic:** API `/api/analyze` nyní vrací `furnishing_level` a `/api/products/recommend` využívá tuto hodnotu pro vážené řazení v Discovery módu.
+- [x] **UI Indicator:** V sekci analýzy prostoru se nyní zobrazuje procentuální úroveň zabydlenosti a slovní kategorie (Prázdná, Částečně vybavená, Plně vybavená).
+- [x] **i18n Support:** Přidány lokalizační klíče pro stavy zabydlenosti v češtině i angličtině.
+
+---
+
+## [2026-01-04] - Sprint 12: Docker Storage & Upload Fix
+
+### Dokončeno
+- [x] **Docker Path Fix:** Opravena cesta pro ukládání obrázků v Docker kontejneru. Problém byl s Docker cache, která neaktualizovala kód po změnách.
+- [x] **Full Rebuild:** Provedeno `docker-compose build --no-cache www` pro vynucení nového buildu.
+- [x] **Upload API Verified:** Ověřena funkčnost upload API s FormData - session se vytváří, obrázky se ukládají do `/app/www/public/uploads/`.
+- [x] **HTTP Access Confirmed:** Potvrzeno, že obrázky jsou dostupné přes `https://vybaveno.yrx.cz/uploads/...` (HTTP 200).
+- [x] **AI Cache Working:** Deduplikace obrázků pomocí SHA-256 hash funguje správně - stejný obrázek = stejná analýza.
+- [x] **Inteligentní Tooltip Pozicování:** Tooltips se nyní zobrazují vlevo od markeru pokud je marker blízko pravého okraje (x > 55%), jinak vpravo. Šipka se automaticky přesouvá na správnou stranu.
+- [x] **Demo Auto-Retry:** Implementována automatická retry logika pro demo testování. Pokud AI analýza selže, systém automaticky stáhne nový obrázek a zkusí znovu (max 3 pokusy). Cíl: 100% úspěšnost demo flow.
+
+### Technické detaily
+- Storage path v Docker: `/app/www/public/uploads/`
+- CWD v kontejneru: `/app`
+- Důvod problému s cache: Docker cache (`CACHED` vrstvy) bránila aplikaci nového kódu po úpravách.
+- Tooltip logika: `showTooltipLeft = markerX > 55` určuje stranu zobrazení
+- Demo retry: Detekce demo módu podle názvu souboru (`file.name.startsWith('demo-')`), max 3 automatické pokusy s novými obrázky
+
+---
+
+## [2026-01-04] - Sprint 11: Internationalization (i18n)
+
+### Dokončeno
+- [x] **i18n Infrastructure:** Implementována podpora pro více jazyků (CS/EN) pomocí Next.js Middleware a dynamického routingu `[lang]`.
+- [x] **App Router Restructuring:** Migrace hlavní stránky do `src/app/[lang]/page.tsx` a oddělení klientské logiky do `HomeClient.tsx`.
+- [x] **Dictionaries:** Vytvořeny JSON slovníky (`cs.json`, `en.json`) pokrývající všechny texty v aplikaci (Common, Upload, Analysis, Results).
+- [x] **Component Localization:**
+    - `HomeClient.tsx`: Kompletní náhrada hardcoded textů za `dict` klíče.
+    - `AnalysisSpinner.tsx`: Lokalizované fáze analýzy.
+    - `UploadZone.tsx`: Lokalizované instrukce a tipy pro focení.
+- [x] **Middleware:** Automatická detekce jazyka prohlížeče a přesměrování na `/cs` nebo `/en`.
+- [x] **Deployment Fixes:**
+    - Oprava JSON syntaxe v `en.json`.
+    - Aktualizace `layout.tsx` a `page.tsx` pro asynchronní zpracování `params` (Next.js 15+).
+    - Prop-drilling `dict` objektu do `ResultsView` a `StudioEditor`.
+    - Úspěšný build a nasazení na vývojové prostředí.
+- [x] **Modern Concierge Flow Optimization:**
+    - **Non-blocking Upload:** Oprava stavu `isUploading`, který blokoval zobrazení fotky během analýzy. Nyní se fotka zobrazí okamžitě po nahrání.
+    - **Analysis Feedback:** Přidána vizuální notifikace "Analýza dokončena!" po úspěšném zpracování místnosti.
+    - **Smart Navigation:** Vylepšena logika tlačítka "Zpět" – v režimu návrhu se nejprve vrátí k původní fotce s body, místo smazání celé relace.
+    - **State Management:** Implementován kompletní reset stavů (analýza, produkty, heuristika) při nahrání nové fotografie.
+    - **Dictionary Expansion:** Doplněny chybějící klíče pro rozpočet a úspěšné stavy analýzy.
+
+---
+
 ## [2026-01-04] - Sprint 10: UI Quick Wins & Concierge Polish
 
 ### Dokončeno
