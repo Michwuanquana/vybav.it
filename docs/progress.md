@@ -8,11 +8,16 @@
   2. **Paralelizace:** Engine nyní provádí FTS vyhledávání pro všechna AI doporučení paralelně pomocí `Promise.all`.
   3. **SQL Filtrování:** Discovery Mode (bez AI) nyní filtruje produkty podle kategorií přímo v SQL dotazu místo v RAM.
   4. **Benchmark:** Vytvořen skript `scripts/test-api-quality.ts` pro měření výkonu a kvality.
-
-### Technické Detaily
-- **API Route:** `www/src/app/api/products/recommend/route.ts` - optimalizované SQL dotazy.
-- **Engine:** `www/src/lib/recommendation/engine.ts` - asynchronní orchestrace, podpora pro `allProducts = null`.
 - **Výsledek:** Průměrný čas zpracování klesl z **198ms** na **16ms** (na lokálním datasetu).
+
+## [2026-01-06] - Health Check & Hardware Diagnostics
+
+### Stav systému
+- **Disk SSD (systémový):** 86% zaplněno (30GB volných).
+  - **Docker Build Cache:** ~85 GB (hlavní příčina zaplnění).
+  - **Docker Images:** ~27 GB.
+- **HDD (sekundární):** 1TB `/dev/sda` je funkční, ale nepoužitý (bez partition).
+  - **SMART status:** PASSED (104 reallocated sectors - disk je starší, ale zatím drží).
 
 ---
 
