@@ -109,10 +109,27 @@
   "studio": {
     "title": "Studio Editor",
     "save_design": "Uložit návrh",
-    "new_point": "Nový bod",
+    "new_point": "Nový prvek",
     "marker_label": "Prvky v místnosti",
-    "delete_marker": "Smazat bod",
+    "delete_marker": "Smazat",
     "click_to_add": "Klikněte do fotky pro přidání nového prvku.",
-    "position": "Pozice"
+    "position": "Pozice",
+    "type": "Typ",
+    "drag_hint": "Přetáhněte na požadované místo",
+    "product_types": {
+      "sofa": "Pohovka",
+      "chair": "Židle",
+      "table": "Stůl",
+      "bed": "Postel",
+      "lamp": "Lampa",
+      "rug": "Koberec",
+      "shelf": "Police",
+      "wardrobe": "Skříň",
+      "desk": "Pracovní stůl",
+      "plant": "Rostlina",
+      "mirror": "Zrcadlo",
+      "curtain": "Závěsy",
+      "other": "Jiné"
+    }
   }
 }

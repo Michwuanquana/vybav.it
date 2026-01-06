@@ -247,29 +247,11 @@ export function ResultsView({
   return (
     <div className="flex flex-col relative">
       <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex items-center justify-between pt-2">
-          <img src="/logo.svg" alt="Vybaveno" className="h-6" />
+        <div className="flex items-center justify-end pt-2">
           <Button variant="ghost" onClick={onBack} className="text-sage hover:text-sage/80 p-0 h-auto text-xs">
             <ArrowLeft className="w-3 h-3 mr-1.5" />
             {dict.common.back}
           </Button>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowStudio(true)}
-              className="border-sage/20 text-sage hover:bg-sage/5 h-7 text-[10px] px-3"
-            >
-              <Edit3 className="w-3 h-3 mr-1.5" />
-              {dict.results.edit_positions}
-            </Button>
-            <Badge variant="outline" className="bg-sage/5 text-sage border-sage/20 px-2 py-0 text-[9px]">
-              {dict.results.finish_design}
-            </Badge>
-          </div>
         </div>
 
         {/* No Points Warning */}
@@ -284,25 +266,6 @@ export function ResultsView({
             </div>
           </div>
         )}
-
-        {/* Budget Tracker */}
-        <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-sage/10 space-y-2">
-          <div className="flex justify-between items-end">
-            <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">{dict.common.budget}</h3>
-            <p className="text-xs font-bold text-charcoal">
-              {totalPrice.toLocaleString('cs-CZ')} / {budget.toLocaleString('cs-CZ')} Kč
-            </p>
-          </div>
-          <div className="h-1.5 w-full bg-sand rounded-full overflow-hidden">
-            <div 
-              className={cn(
-                "h-full transition-all duration-500",
-                budgetPercentage > 90 ? "bg-terracotta" : "bg-sage"
-              )}
-              style={{ width: `${budgetPercentage}%` }}
-            />
-          </div>
-        </div>
 
         <div className="space-y-4">
           {/* Analýza místnosti - Expanded */}
@@ -556,7 +519,8 @@ export function ResultsView({
                     id: `ai-${i}`,
                     x: r.placement_coordinates!.x / 10,
                     y: r.placement_coordinates!.y / 10,
-                    label: r.item
+                    label: r.item,
+                    productType: 'other' as const
                   }))
               : []
             }

@@ -1,3 +1,20 @@
+## [2026-01-06] - Sloučení rozpočtu se sliderem + Progress Bar
+
+### Změna
+- **PriceSlider:** Přidána vizuální indikace utracené částky ("spending progress bar").
+  - Tmavší pozadí se doplňuje zleva podle součtu cen produktů vybraných "Do projektu".
+  - Pokud útrata překročí rozpočet, částka a bar se zbarví červeně.
+- **HomeClient:** Přidán state `selectedProducts` pro sledování produktů v aktuálním návrhu.
+- **Product Popup:** Přidáno tlačítko "Do projektu" pro přidání/odebrání produktu z rozpočtu.
+- **Barevnost:** Implementovány brand barvy (sage pro aktivní prvky, terracotta pro hlavní CTA).
+
+### Technické detaily
+- **Komponenta:** [PriceSlider.tsx](www/src/components/PriceSlider.tsx)
+- **Logika:** Logaritmické měřítko pro progress bar shodné se sliderem.
+- **Deploy:** Úspěšně nasazeno na vybaveno.yrx.cz.
+
+---
+
 ## [2026-01-06] - Optimalizace Recommendation API (12x zrychlení)
 
 ### Problém: API recommend bylo pomalé (~200ms+ na request)

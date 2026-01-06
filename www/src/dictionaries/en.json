@@ -109,10 +109,27 @@
   "studio": {
     "title": "Studio Editor",
     "save_design": "Save Design",
-    "new_point": "New Point",
+    "new_point": "New Element",
     "marker_label": "Room Elements",
-    "delete_marker": "Delete Marker",
+    "delete_marker": "Delete",
     "click_to_add": "Click on the photo to add a new element.",
-    "position": "Position"
+    "position": "Position",
+    "type": "Type",
+    "drag_hint": "Drag to desired position",
+    "product_types": {
+      "sofa": "Sofa",
+      "chair": "Chair",
+      "table": "Table",
+      "bed": "Bed",
+      "lamp": "Lamp",
+      "rug": "Rug",
+      "shelf": "Shelf",
+      "wardrobe": "Wardrobe",
+      "desk": "Desk",
+      "plant": "Plant",
+      "mirror": "Mirror",
+      "curtain": "Curtain",
+      "other": "Other"
+    }
   }
 }

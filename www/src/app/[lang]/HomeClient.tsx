@@ -155,6 +155,8 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
     const sessionBudget = initialSessionData?.budget;
     return (sessionBudget && sessionBudget > 0) ? sessionBudget : 45000;
   });
+  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+  const totalSpent = selectedProducts.reduce((sum, p) => sum + (p.price_czk || 0), 0);
   const [showAllMarkers, setShowAllMarkers] = useState(false);
   const [isEmptyRoom, setIsEmptyRoom] = useState(false);
   const [showAnalysisSuccess, setShowAnalysisSuccess] = useState(false);
@@ -746,6 +748,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
               </h2>
               <PriceSlider 
                 value={budget} 
+                spentAmount={totalSpent}
                 onChange={setBudget} 
                 onCommit={(val) => {
                   setBudget(val);
@@ -912,19 +915,43 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                 )}
               </div>
 
-              {/* Action Button */}
-              <a 
-                href={selectedProduct.affiliate_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full"
-              >
-                <Button className="w-full bg-terracotta hover:bg-terracotta/90 text-white">
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Zobrazit produkt
-                  <ExternalLink className="w-4 h-4 ml-2" />
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  onClick={() => {
+                    const isInProject = selectedProducts.some(p => p.id === selectedProduct.id);
+                    if (isInProject) {
+                      setSelectedProducts(prev => prev.filter(p => p.id !== selectedProduct.id));
+                    } else {
+                      setSelectedProducts(prev => [...prev, selectedProduct]);
+                    }
+                  }}
+                  className={cn(
+                    "flex-1 h-12 rounded-xl border-2 transition-all duration-200",
+                    selectedProducts.some(p => p.id === selectedProduct.id) 
+                      ? "bg-sage text-white hover:bg-sage/90 border-sage" 
+                      : "bg-sage/5 text-sage hover:bg-sage/10 border-sage/30 border-dashed"
+                  )}
+                >
+                  {selectedProducts.some(p => p.id === selectedProduct.id) ? (
+                    <><CheckCircle2 className="w-4 h-4 mr-2" /> V projektu</>
+                  ) : (
+                    <><Plus className="w-4 h-4 mr-2" /> Do projektu</>
+                  )}
                 </Button>
-              </a>
+
+                <a 
+                  href={selectedProduct.affiliate_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                >
+                  <Button className="w-full h-12 bg-terracotta hover:bg-terracotta/90 text-white rounded-xl shadow-sm">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Koupit
+                  </Button>
+                </a>
+              </div>
             </div>
           )}
         </DialogContent>
