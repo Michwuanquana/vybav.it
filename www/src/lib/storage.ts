@@ -57,6 +57,6 @@ export async function uploadImage(
     console.log(`Image saved to: ${publicPath}`);
   }
   
-  // Vrátíme URL cestu
-  return `/uploads/${fileName}`;
+  // Vrátíme URL cestu - přes API route kvůli Next.js standalone
+  return `/api/uploads/${fileName}`;
 }

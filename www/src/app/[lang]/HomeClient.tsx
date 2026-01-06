@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UploadZone } from "@/components/UploadZone";
 import { RoomTypeSelector } from "@/components/RoomTypeSelector";
 import { ColorPicker } from "@/components/ColorPicker";
@@ -31,7 +32,9 @@ import {
   CheckCircle2,
   Wand,
   RotateCcw,
-  X
+  X,
+  ShoppingCart,
+  ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -140,19 +143,18 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  // Visualization state
-  const [visualizingId, setVisualizingId] = useState<string | null>(null);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationPhase, setGenerationPhase] = useState<string | null>(null);
+  // Product popup state
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedRecommendation, setSelectedRecommendation] = useState<any | null>(null);
   const [hasError, setHasError] = useState<boolean>(false);
-  const [placement, setPlacement] = useState<{ x: number; y: number } | null>(null);
-  const [sliderPosition, setSliderPosition] = useState(50);
 
   // Preferences state
-  const [roomType, setRoomType] = useState<string | null>("living");
+  const [roomType, setRoomType] = useState<string | null>(initialSessionData?.room_type || "living");
   const [colors, setColors] = useState({ primary: "#F0E8D9", secondary: "#7C8F80" });
-  const [budget, setBudget] = useState(45000);
+  const [budget, setBudget] = useState(() => {
+    const sessionBudget = initialSessionData?.budget;
+    return (sessionBudget && sessionBudget > 0) ? sessionBudget : 45000;
+  });
   const [showAllMarkers, setShowAllMarkers] = useState(false);
   const [isEmptyRoom, setIsEmptyRoom] = useState(false);
   const [showAnalysisSuccess, setShowAnalysisSuccess] = useState(false);
@@ -197,95 +199,19 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
       return bestMatch;
     }
 
-    return recommendedProducts[0];
-  };
-
-  const handleVisualize = async (product: any, coords: { x: number; y: number }) => {
-    if (!uploadedImage || isGenerating) return;
-    
-    setIsGenerating(true);
-    setHasError(false);
-    setGenerationPhase("Analyzujeme produkt...");
-    setVisualizingId(product.id);
-    setPlacement(coords);
-
-    try {
-      setTimeout(() => setGenerationPhase("Připravujeme scénu..."), 2000);
-      setTimeout(() => setGenerationPhase("Vykreslujeme detaily..."), 5000);
-      setTimeout(() => setGenerationPhase("Ladíme osvětlení..."), 12000);
-      
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: sessionId || "demo",
-          productId: product.id,
-          coordinates: coords,
-          userInstruction: `Place the ${product.name} exactly at the marked location [y:${coords.y}, x:${coords.x}].`
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setHasError(true);
-        throw new Error(errorData.error || "Visualization failed");
-      }
-      
-      const data = await response.json();
-      if (data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
-        setSliderPosition(50);
-      } else {
-        setHasError(true);
-        throw new Error("No image URL returned");
-      }
-    } catch (error: any) {
-      console.error("Visualization error:", error);
-      setHasError(true);
-    } finally {
-      setIsGenerating(false);
+    // Pokud nenajdeme shodu, raději nevracet nic (user request: ať nenabízí špatné věci)
+    if (recommendedProducts.length > 0) {
+      console.log(`UI: No specific match found for "${itemKeyword}". Results: ${recommendedProducts.length}`);
     }
+    return null;
   };
 
-  const handleGenerateFullDesign = async () => {
-    if (!uploadedImage || isGenerating) return;
-    
-    setIsGenerating(true);
-    setHasError(false);
-    setGenerationPhase("Skládáme váš návrh...");
-    try {
-      setTimeout(() => setGenerationPhase("Optimalizujeme rozmístění..."), 3000);
-      setTimeout(() => setGenerationPhase("Vykreslujeme celou místnost..."), 8000);
-      setTimeout(() => setGenerationPhase("Ladíme osvětlení a stíny..."), 15000);
-
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: sessionId || "demo",
-          fullDesign: true,
-          roomType,
-          style: analysisResult?.detected_style
-        }),
-      });
-
-      if (!response.ok) {
-        setHasError(true);
-        throw new Error("Full design generation failed");
-      }
-      
-      const data = await response.json();
-      if (data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
-        setSliderPosition(50);
-      }
-    } catch (error) {
-      console.error("Full design error:", error);
-      setHasError(true);
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleMarkerClick = (product: any, recommendation: any) => {
+    setSelectedProduct(product);
+    setSelectedRecommendation(recommendation);
   };
+
+  // Note: Full design generation removed - will be implemented later
 
   // Debounce logic for updates
   const handleUpdateProducts = async () => {
@@ -330,7 +256,6 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
     setIsUploading(true);
     setAnalysisResult(null);
     setRecommendedProducts([]);
-    setGeneratedImage(null);
     setIsEmptyRoom(false);
     
     // Detekce demo mode podle názvu souboru
@@ -362,7 +287,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
       setIsAlreadyAnalyzed(!!data.isAnalyzed);
       
       // Redirect na URL se session ID
-      router.push(`/${lang}/session/${data.sessionId}`);
+      router.push(`/${lang}/room/${data.sessionId}`);
       
       // Lokální heuristika pro prázdnou místnost
       const empty = await detectEmptyRoom(imageDataUrl);
@@ -522,7 +447,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
 
     try {
       // Smazání session z databáze
-      await fetch(`/api/session/${sessionId}`, {
+      await fetch(`/api/room/${sessionId}`, {
         method: "DELETE",
       });
     } catch (error) {
@@ -533,12 +458,9 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
     router.push(`/${lang}`);
   };
 
-  // Znovu - resetuje jen design (generated image), ale zachová session
+  // Znovu - funkce odstraněna (generování se dělá později)
   const handleRestartDesign = () => {
-    setGeneratedImage(null);
-    setVisualizingId(null);
-    setPlacement(null);
-    setSliderPosition(50);
+    // Placeholder - will be implemented with generation feature
     setHasError(false);
   };
 
@@ -546,7 +468,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
   const handleClearAll = async () => {
     if (sessionId) {
       try {
-        await fetch(`/api/session/${sessionId}`, {
+        await fetch(`/api/room/${sessionId}`, {
           method: "DELETE",
         });
       } catch (error) {
@@ -604,18 +526,21 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
           <div className="relative max-w-full max-h-full flex items-center justify-center group/stage">
             {uploadedImage ? (
               <div className="relative shadow-2xl rounded-lg overflow-hidden group/image-container">
-                {/* Floating Buttons - Znovu + Vyčistit */}
-                {(analysisResult || generatedImage) && (
-                  <div className="absolute top-4 right-4 flex gap-2 z-50">
-                    {/* Znovu - resetuje jen design */}
+                {/* Floating Buttons - Reload & Vyčistit */}
+                {analysisResult && (
+                  <div className="absolute top-4 left-4 flex gap-2 z-50">
+                    {/* Reload - spustí novou analýzu */}
                     <button
-                      onClick={handleRestartDesign}
-                      className="group/restart bg-sage/90 hover:bg-sage text-white p-3 rounded-full shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
-                      title={dict.common.restart_design}
+                      onClick={handleReset}
+                      className="group/reload bg-white/90 hover:bg-white text-charcoal p-3 rounded-full shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+                      title="Nahrát znovu"
                     >
                       <RotateCcw className="w-5 h-5" />
                     </button>
-                    
+                  </div>
+                )}
+                {analysisResult && (
+                  <div className="absolute top-4 right-4 flex gap-2 z-50">
                     {/* Vyčistit - smaže všechno */}
                     <button
                       onClick={handleClearAll}
@@ -626,58 +551,14 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                     </button>
                   </div>
                 )}
-                {generatedImage ? (
-                  <div className="relative overflow-hidden bg-charcoal/20">
-                    {/* Original Image (Before) */}
-                    <img 
-                      src={uploadedImage} 
-                      alt="Original" 
-                      className="block max-w-full max-h-[85vh] w-auto h-auto" 
-                    />
-                    {/* Generated Image (After) */}
-                    <div 
-                      className="absolute inset-0 w-full h-full overflow-hidden"
-                      style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-                    >
-                      <img 
-                        src={generatedImage} 
-                        alt="Generated" 
-                        className="block max-w-full max-h-[85vh] w-auto h-auto" 
-                      />
-                    </div>
-                    
-                    {/* Slider Handle */}
-                    <div 
-                      className="absolute inset-y-0 z-40 w-1 bg-white/50 backdrop-blur-sm cursor-ew-resize"
-                      style={{ left: `${sliderPosition}%` }}
-                    >
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-2xl flex items-center justify-center border-4 border-white/20 active:scale-110 transition-transform">
-                        <div className="flex gap-1">
-                          <div className="w-1 h-5 bg-sage/40 rounded-full" />
-                          <div className="w-1 h-5 bg-sage/40 rounded-full" />
-                        </div>
-                      </div>
-                      {/* Labels */}
-                      <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest pointer-events-none">{dict.common.original}</div>
-                      <div className="absolute top-4 left-4 bg-terracotta/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest pointer-events-none">{dict.common.design}</div>
-                    </div>
-                    
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="100" 
-                      value={sliderPosition} 
-                      onChange={(e) => setSliderPosition(parseInt(e.target.value))}
-                      className="absolute inset-0 z-50 opacity-0 cursor-ew-resize w-full h-full"
-                    />
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <img 
-                      src={uploadedImage} 
-                      alt="Room" 
-                      className="block max-w-full max-h-[85vh] w-auto h-auto transition-all duration-500" 
-                    />
+                
+                {/* Room Image */}
+                <div className="relative">
+                  <img 
+                    src={uploadedImage} 
+                    alt="Room" 
+                    className="block max-w-full max-h-[85vh] w-auto h-auto transition-all duration-500" 
+                  />
                     
                     {/* Heuristická notifikace pro prázdnou místnost */}
                     {isEmptyRoom && !analysisResult && (
@@ -693,8 +574,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
+                </div>
 
                 {/* Success Notification after Analysis */}
                 {showAnalysisSuccess && (
@@ -714,7 +594,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                 {/* AI Značky (Markers) - Now inside the same relative container as the image */}
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="relative w-full h-full">
-                    {analysisResult && !isGenerating && !isUploading && !isSaving && analysisResult.recommendations
+                    {analysisResult && !isUploading && !isSaving && analysisResult.recommendations
                       ?.slice(0, showAllMarkers ? 100 : 6)
                       .map((rec: any, i: number) => {
                         if (!rec.placement_coordinates) {
@@ -735,7 +615,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                             key={i}
                             className={cn(
                               "absolute pointer-events-auto cursor-pointer transition-all duration-500 z-30 group/marker",
-                              generatedImage ? "opacity-40 hover:opacity-100" : "opacity-100",
+                              "opacity-100",
                               activeCategory === rec.item && "z-50 scale-110"
                             )}
                             style={{ 
@@ -744,7 +624,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                             }}
                             onMouseEnter={() => setActiveCategory(rec.item)}
                             onMouseLeave={() => setActiveCategory(null)}
-                            onClick={() => product && handleVisualize(product, rec.placement_coordinates!)}
+                            onClick={() => product && handleMarkerClick(product, rec)}
                           >
                             <div className="relative -translate-x-1/2 -translate-y-1/2">
                               <div className={cn(
@@ -821,33 +701,12 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                   setUploadedImage(null);
                   setAnalysisResult(null);
                   setRecommendedProducts([]);
-                  setGeneratedImage(null);
                 }}
                 dict={dict}
               />
             )}
 
-            {isGenerating && (
-              <div className="absolute inset-0 z-50 bg-charcoal/20 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-500">
-                <div className="bg-white p-8 rounded-3xl shadow-2xl border border-sage/10 flex flex-col items-center gap-6 max-w-sm text-center">
-                    <div className="relative">
-                      <div className="w-20 h-20 bg-terracotta/10 rounded-full flex items-center justify-center">
-                        <Wand className="w-10 h-10 text-terracotta animate-pulse" />
-                      </div>
-                    <div className="absolute inset-0 border-4 border-terracotta/20 border-t-terracotta rounded-full animate-spin" />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xl font-bold text-charcoal">{generationPhase || dict.common.generating}</p>
-                    <div className="flex gap-1 justify-center">
-                      <div className="w-1.5 h-1.5 bg-terracotta rounded-full animate-bounce [animation-delay:-0.3s]" />
-                      <div className="w-1.5 h-1.5 bg-terracotta rounded-full animate-bounce [animation-delay:-0.15s]" />
-                      <div className="w-1.5 h-1.5 bg-terracotta rounded-full animate-bounce" />
-                    </div>
-                    <p className="text-xs text-charcoal/40 mt-4 italic">{dict.common.ai_working_note}</p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Generation overlay removed - will be implemented later */}
 
             {hasError && (
               <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
@@ -863,57 +722,12 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                     onClick={() => {
                       setHasError(false);
                       if (!analysisResult && sessionId) handleAnalyze(sessionId);
-                      else if (visualizingId) {
-                        const product = recommendedProducts.find(p => p.id === visualizingId);
-                        if (product && placement) handleVisualize(product, placement);
-                      }
                     }}
                     className="bg-terracotta hover:bg-terracotta/90 text-white rounded-full px-8"
                   >
                     {dict.common.try_again}
                   </Button>
                 </div>
-              </div>
-            )}
-
-            {generatedImage && (
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex gap-3">
-                <Button 
-                  onClick={() => {
-                    setGeneratedImage(null);
-                    setSliderPosition(50);
-                  }}
-                  className="bg-white/90 text-charcoal hover:bg-white shadow-xl rounded-full px-6 border border-sage/10"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  {dict.common.back}
-                </Button>
-                
-                <Button 
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = generatedImage;
-                    link.download = `vybaveno-navrh-${sessionId}.jpg`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                  className="bg-sage text-white hover:bg-sage/90 shadow-xl rounded-full px-6"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {dict.common.download}
-                </Button>
-
-                <Button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
-                    alert(dict.common.link_copied);
-                  }}
-                  className="bg-terracotta text-white hover:bg-terracotta/90 shadow-xl rounded-full px-6"
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  {dict.common.share}
-                </Button>
               </div>
             )}
           </div>
@@ -925,17 +739,6 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
         <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
           {/* Settings Row - More compact */}
           <div className="flex flex-col xl:flex-row gap-6 pb-6 border-b border-stone-100 items-start xl:items-center justify-between">
-            {sessionId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                className="text-charcoal/60 hover:text-charcoal hover:bg-stone-100 rounded-full px-4"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {dict.common?.reset || "Začít znovu"}
-              </Button>
-            )}
             <div className="flex-1 w-full xl:w-auto space-y-2 xl:max-w-[240px]">
               <h2 className="text-[9px] font-bold text-charcoal/30 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-1 h-2.5 bg-terracotta rounded-full"/>
@@ -989,17 +792,11 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                 analysis={analysisResult}
                 products={recommendedProducts}
                 onBack={() => {
-                  if (generatedImage) {
-                    setGeneratedImage(null);
-                  } else {
-                    setAnalysisResult(null);
-                    setUploadedImage(null);
-                    setRecommendedProducts([]);
-                    handleUpdateProducts();
-                  }
+                  setAnalysisResult(null);
+                  setUploadedImage(null);
+                  setRecommendedProducts([]);
+                  handleUpdateProducts();
                 }}
-                onGenerateFullDesign={handleGenerateFullDesign}
-                isGenerating={isGenerating}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}
                 activeCategory={activeCategory}
@@ -1063,6 +860,75 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
           dict={dict}
         />
       )}
+
+      {/* Product Popup Dialog */}
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-charcoal">
+              {selectedRecommendation?.item}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedProduct && (
+            <div className="space-y-4">
+              {/* Product Image */}
+              <div className="relative aspect-square rounded-xl overflow-hidden bg-stone-50">
+                <img 
+                  src={selectedProduct.image_url} 
+                  alt={selectedProduct.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Product Info */}
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-charcoal">{selectedProduct.name}</h3>
+                    <p className="text-sm text-stone-500">{selectedProduct.brand}</p>
+                  </div>
+                  <p className="text-2xl font-bold text-terracotta whitespace-nowrap">
+                    {selectedProduct.price_czk.toLocaleString('cs-CZ')} Kč
+                  </p>
+                </div>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2">
+                  {selectedProduct.style_tags?.map((tag: string, i: number) => (
+                    <span key={i} className="px-2 py-1 bg-sage/10 text-sage text-xs rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Recommendation Reason */}
+                {selectedRecommendation?.reason && (
+                  <div className="bg-stone-50 p-3 rounded-lg">
+                    <p className="text-xs text-stone-600">
+                      <span className="font-semibold">Proč doporučujeme:</span> {selectedRecommendation.reason}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Button */}
+              <a 
+                href={selectedProduct.affiliate_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full"
+              >
+                <Button className="w-full bg-terracotta hover:bg-terracotta/90 text-white">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Zobrazit produkt
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </a>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

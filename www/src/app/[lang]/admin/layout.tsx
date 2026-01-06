@@ -7,7 +7,8 @@ import {
   Users, 
   Settings, 
   Home,
-  LogOut
+  LogOut,
+  Search
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -33,6 +34,10 @@ export default function AdminLayout({
           <Link href="/admin/products" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-gray-300 hover:text-white">
             <Package className="w-5 h-5" />
             <span>Produkty</span>
+          </Link>
+          <Link href="/admin/fts" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-gray-300 hover:text-white">
+            <Search className="w-5 h-5" />
+            <span>FTS Ladění</span>
           </Link>
           <Link href="/admin/import" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-gray-300 hover:text-white">
             <UploadCloud className="w-5 h-5" />

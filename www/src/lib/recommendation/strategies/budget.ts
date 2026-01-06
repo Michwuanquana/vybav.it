@@ -64,7 +64,7 @@ export function getDefaultBombConfig(budget: number): BombConfig {
  * Filtruje produkty podle rozpočtu
  * 
  * @param products - Všechny dostupné produkty
- * @param budget - Max rozpočet uživatele
+ * @param budget - Max rozpočet uživatele (musí být > 0)
  * @param includeNearBudget - Povolit produkty lehce nad rozpočtem (až +15%)
  */
 export function filterByBudget(
@@ -72,7 +72,9 @@ export function filterByBudget(
   budget: number,
   includeNearBudget: boolean = false
 ): Product[] {
-  const maxPrice = includeNearBudget ? budget * 1.15 : budget;
+  // Fallback na max cenu pokud je budget neplatný
+  const validBudget = budget && budget > 0 ? budget : 150000;
+  const maxPrice = includeNearBudget ? validBudget * 1.15 : validBudget;
   return products.filter(p => p.price_czk <= maxPrice);
 }
 

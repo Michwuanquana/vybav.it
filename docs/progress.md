@@ -1,6 +1,192 @@
+## [2026-01-06] - Optimalizace Recommendation API (12x zrychlení)
+
+### Problém: API recommend bylo pomalé (~200ms+ na request)
+- **Příčina:** Route handler načítal celou databázi produktů (5000+ položek) do paměti při každém requestu.
+- **Symptom:** Pomalá odezva při přepínání stylů nebo po analýze místnosti.
+- **Řešení:** 
+  1. **Lazy Loading:** API route už nestahuje celou DB. V AI módu stahuje pouze kandidáty pro "bomby" (upsell), zbytek řeší engine přes FTS přímo v DB.
+  2. **Paralelizace:** Engine nyní provádí FTS vyhledávání pro všechna AI doporučení paralelně pomocí `Promise.all`.
+  3. **SQL Filtrování:** Discovery Mode (bez AI) nyní filtruje produkty podle kategorií přímo v SQL dotazu místo v RAM.
+  4. **Benchmark:** Vytvořen skript `scripts/test-api-quality.ts` pro měření výkonu a kvality.
+
+### Technické Detaily
+- **API Route:** `www/src/app/api/products/recommend/route.ts` - optimalizované SQL dotazy.
+- **Engine:** `www/src/lib/recommendation/engine.ts` - asynchronní orchestrace, podpora pro `allProducts = null`.
+- **Výsledek:** Průměrný čas zpracování klesl z **198ms** na **16ms** (na lokálním datasetu).
+
+---
+
+## [2026-01-05] - FTS Vylepšení: Kategorie + Synonyma
+
+### Problém: AI navrhuje "Obraz", FTS vrací "Zrcadlo"
+- **Příčina:** FTS hledá přesná slova, ale "abstraktní obraz" nemá shodu v DB
+- **Symptom:** Popup ukazuje zrcadlo místo obrazu/plakátu
+- **Řešení:** 
+  1. Přidáno mapování českých termínů na DB kategorie (`obraz` → `picture_frame`)
+  2. Přidána synonyma pro rozšíření dotazu (`obraz` → `plakát`, `rám`, `rámeček`)
+  3. Fallback na kategorii když FTS nic nenajde
+
+### Technické Detaily
+- **Soubor:** [fts.ts](www/src/lib/recommendation/strategies/fts.ts)
+- **Nové konstanty:**
+  - `TERM_TO_CATEGORY`: Mapování 20+ českých termínů na kategorie
+  - `TERM_SYNONYMS`: Rozšíření dotazů o synonyma
+- **Nová funkce:** `getCategoryFromItem()` - extrakce kategorie z AI doporučení
+- **Vylepšená logika:**
+  1. FTS s rozšířenými synonymy
+  2. Fallback na kategorii pokud FTS selže
+
+### Validace
+- ✅ Build projde bez chyb
+- ✅ Deploy na vybaveno.yrx.cz
+
+---
+
+## [2026-01-06] - Oprava 404 Errors (API Routes + Favicon)
+
+### Problém: /api/analyze vrací 404
+- **Příčina:** Starý Docker build neobsahoval nové API routes po refactoringu `/session/` → `/room/`
+- **Symptom:** Browser console: `Failed to load resource: 404 /api/analyze`
+- **Řešení:** 
+  1. Rebuild + redeploy (`make deploy-dev`)
+  2. Ověření: `curl -I /api/analyze` → **405** (Method Not Allowed) = route existuje ✅
+  3. Route správně očekává POST request s JSON tělem
+
+### Problém: /cs/favicon.svg vrací 404
+- **Příčina:** Next.js s `[lang]` routingem přidává locale prefix k assetům definovaným v metadata
+- **Symptom:** Browser console: `Failed to load resource: 404 /cs/favicon.svg`
+- **Řešení:**
+  1. Zkopírován `/public/favicon.svg` → `/src/app/icon.svg` (Next.js file convention)
+  2. Odstraněn `icons` block z `layout.tsx` metadata
+  3. Next.js nyní automaticky servuje ikonu z `/icon.svg`
+
+### Technické Detaily
+- **Next.js File Conventions:** `app/icon.svg` automaticky rozpoznán jako favicon
+- **Build Process:** Každý rebuild kompletně přestaví standalone bundle s aktuálními routes
+- **Status Codes:**
+  - 404 = route neexistuje
+  - 405 = route existuje, ale metoda (GET/POST) není povolena
+  - 307 = temporary redirect (Next.js optimalizuje asset delivery)
+
+---
+
 # Vybaveno — Progress Log
 
 Zápisy z každého vývojového runu. Nejnovější nahoře.
+
+---
+
+## [2026-01-06] - Oprava Image Upload + URL Refactoring
+
+### Problém: Broken Images (404)
+- **Příčina:** Next.js standalone **neservíruje** `/public/` folder automaticky runtime
+- **Symptom:** Obrázky uploadované do `/uploads/` vracely 404
+- **Řešení:** 
+  1. Vytvořena custom API route `/api/uploads/[...path]` pro servírování souborů
+  2. Změna `storage.ts` - URL z `/uploads/` na `/api/uploads/`
+  3. Vyčištění DB - smazáno 62 starých sessions se starou URL strukturou
+
+### URL Struktura - Session → Room
+- **Změna:** `/cs/session/[id]` → `/cs/room/[id]`
+- **Důvod:** Lepší sémantika ("pokoj" místo "relace")
+- **Soubory:**
+  - Přejmenovány složky: `www/src/app/[lang]/session` → `room`
+  - Přejmenovány API routes: `www/src/app/api/session` → `api/room`
+  - Aktualizovány odkazy v `HomeClient.tsx`, `SessionClient.tsx`
+
+### Technické Detaily
+- **API Route Pattern:** `/api/uploads/[...path]/route.ts` s catch-all segmentem
+- **Cache Headers:** `public, max-age=31536000, immutable` pro optimální cachování
+- **Security:** Path traversal protection (`..` blokován)
+- **Content Types:** Automatická detekce pro .jpg, .png, .gif, .webp
+
+### Validace
+- ✅ Build projde bez chyb
+- ✅ Obrázky se načítají přes `/api/uploads/` (200 OK)
+- ✅ Nová URL struktura `/cs/room/[id]` funkční
+- ✅ Deploy na vybaveno.yrx.cz kompletní
+
+---
+
+## [2026-01-06] - UX Refactoring: Marker → Popup Only + UI Tlačítka
+
+### Změna UI
+- **Reload tlačítko (reload ikona):** Přesunuto z pravého panelu na levý horní roh obrázku
+  - Bylo: V Settings Row s ArrowLeft ikonou
+  - Je teď: Na obrázku vlevo nahoře, vedle X tlačítka (reload ikona `RotateCcw`)
+  - Barva: Bílá s shadow (contrast na obrázku)
+  
+- **X tlačítko (Vyčistit):** Zůstává vpravo nahoře na obrázku
+  - Barva: Terracotta background
+
+### Změna Chování
+**Před:** Po kliknutí na bod na fotce se spustilo vykreslování/generování návrhu (slider with before/after)
+**Po:** Po kliknutí se otevře popup s top doporučeným produktem pro danou kategorii
+
+### Odstraněno
+- [x] **State Variables:** `generatedImage`, `visualizingId`, `sliderPosition`, `placement`
+- [x] **Funkce:** `handleVisualize()`, `handleGenerateFullDesign()`
+- [x] **UI Komponenty:**
+  - Before/after slider pro porovnání původní a generované fotky
+  - Sticky CTA tlačítko "Vytvořit finální návrh"
+  - Action tlačítka (Back, Download, Share) pro generovaný obrázek
+  - Props v `ResultsView`: `onGenerateFullDesign`, `isGenerating`
+- [x] **Logika v Error Handling:** Odstranění retry logiky pro `visualizingId` a `placement`
+
+### Přidáno
+- [x] **Popup Dialog:** Při kliknutí na marker se otevře dialog s:
+  - Obrázek produktu (fallback na placeholder)
+  - Název produktu, značka, cena
+  - Tagy/kategorie
+  - Důvod doporučení (fallback na popis z databáze)
+  - Affiliate odkaz "Zobrazit na webu"
+- [x] **State:** `selectedProduct`, `selectedRecommendation`
+- [x] **Handler:** `handleMarkerClick(rec)` - hledá produkt v `recommendedProducts` a otevírá popup
+
+### Technické Detaily
+- **Soubory:** [HomeClient.tsx](www/src/app/[lang]/HomeClient.tsx), [ResultsView.tsx](www/src/components/ResultsView.tsx)
+- **Dialog UI:** shadcn/ui `Dialog` komponenta
+- **Icons:** `ShoppingCart`, `ExternalLink` z lucide-react
+
+### Důvod
+Generování/vykreslování se odložuje na později - nejprve je potřeba vychytat umístění produktů. 
+Aktuální UX se soustředí pouze na jednoduchou prezentaci doporučení.
+
+### Validace
+- ✅ Build projde bez chyb
+- ✅ Deploy na vybaveno.yrx.cz funkční
+- 🔲 **TODO:** Otestovat klikání na markery a popup flow
+
+---
+
+## [2026-01-06] - Hotfix: API 500 Error + Icon Cleanup
+
+### Opraveno
+- [x] **Icon Cleanup:** Opraveny neexistující lucide-react ikony:
+  - `MagicWand` → `Wand` (ve 3 souborech, celkem 11 výskytů)
+  - `Rulers` → `Ruler`
+  - Soubory: `UploadZone.tsx`, `ResultsView.tsx`, `HomeClient.tsx`
+  
+- [x] **KRITICKÝ BUG #1 - SQL Dimensions:** Endpoint `/api/products/recommend` vracel 500 kvůli neexistujícím sloupcům.
+  - **Příčina:** SQL dotaz používal `p.width_cm`, `p.height_cm`, `p.depth_cm`
+  - **Realita:** DB má `dimensions_cm JSONB`
+  - **Oprava:** Parsování rozměrů z JSON s bezpečným try/catch
+
+- [x] **KRITICKÝ BUG #2 - Null Safety:** TypeError při volání `.toLowerCase()` na null hodnotách.
+  - **Příčina:** `product.color` a `rec.suggested_color` mohou být null
+  - **Oprava:** Přidány null checky před toLowerCase() ve [style.ts](www/src/lib/recommendation/strategies/style.ts)
+  - **Bonus:** Konzistentní parsování dimensions_cm i v [fts.ts](www/src/lib/recommendation/strategies/fts.ts)
+
+### Validace
+- ✅ Build projde bez chyb
+- ✅ API vrací produkty (5707 v DB)
+- ✅ AI doporučení fungují (FTS search + scoring + bomby)
+- ✅ Deploy na vybaveno.yrx.cz funkční
+
+### Soubory upraveny
+- [route.ts](www/src/app/api/products/recommend/route.ts): SQL + JSON parsing
+- [style.ts](www/src/lib/recommendation/strategies/style.ts): Null-safe toLowerCase()
+- [fts.ts](www/src/lib/recommendation/strategies/fts.ts): Dimensions parsing
 
 ---
 

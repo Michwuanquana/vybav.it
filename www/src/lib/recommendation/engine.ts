@@ -24,7 +24,8 @@ import {
 import { 
   calculateStyleScore, 
   calculateRecommendationScore,
-  getRelevantStyles 
+  getRelevantStyles,
+  getRelevantCategories 
 } from './strategies/style';
 import { 
   calculateFurnishingScore,
@@ -38,12 +39,12 @@ import {
 /**
  * Hlavní funkce pro získání doporučených produktů
  * 
- * @param allProducts - Všechny dostupné produkty z DB
+ * @param allProducts - Volitelný seznam přednačtených produktů
  * @param config - Konfigurační parametry
  * @returns Seřazené produkty + bomby
  */
 export async function getRecommendations(
-  allProducts: Product[],
+  allProducts: Product[] | null,
   config: RecommendationConfig
 ): Promise<RecommendationResult> {
   const {
@@ -59,23 +60,32 @@ export async function getRecommendations(
     maxBombs
   } = config;
 
-  let candidateProducts = allProducts;
+  let candidateProducts = allProducts || [];
   
-  // 1. FTS VYHLEDÁVÁNÍ (pokud jsou AI doporučení)
+  // 0. FILTROVÁNÍ podle typu místnosti (pokud je zadán a není AI mód a máme produkty)
+  if (room && recommendations.length === 0 && candidateProducts.length > 0) {
+    const relevantCategories = getRelevantCategories(room);
+    const categorySet = new Set(relevantCategories.map(c => c.toLowerCase()));
+    candidateProducts = candidateProducts.filter(p => 
+      p.category && categorySet.has(p.category.toLowerCase())
+    );
+  }
+  
+  // 1. FTS VYHLEDÁVÁNÍ (pokud jsou AI doporučení) - Toto je preferovaná cesta
   if (recommendations.length > 0) {
     const ftsResults: Product[] = [];
     const seenIds = new Set<string>();
     
-    // FTS podle AI markers
-    for (const rec of recommendations) {
-      const matches = await searchByRecommendation(rec, budget);
+    // FTS podle AI markers - PARALELNĚ
+    const matchesArray = await Promise.all(recommendations.map(rec => searchByRecommendation(rec, budget)));
+    matchesArray.forEach(matches => {
       matches.forEach(p => {
         if (!seenIds.has(p.id)) {
           ftsResults.push(p);
           seenIds.add(p.id);
         }
       });
-    }
+    });
     
     // FTS podle kontextových dotazů
     if (contextual_queries.length > 0 && ftsResults.length < limit) {
@@ -88,9 +98,12 @@ export async function getRecommendations(
       });
     }
     
-    // Pokud FTS vrátilo výsledky, použijeme je + allProducts jako fallback
+    // Pokud FTS vrátilo výsledky, použijeme JE jako exkluzivní kandidáty
     if (ftsResults.length > 0) {
-      candidateProducts = [...ftsResults, ...allProducts.filter(p => !seenIds.has(p.id))];
+      candidateProducts = ftsResults;
+      console.log(`Engine: AI mode - using ${ftsResults.length} FTS matches as exclusive candidates`);
+    } else if (candidateProducts.length === 0) {
+      console.warn(`Engine: AI mode - FTS found ZERO matches and no candidates provided`);
     }
   }
 
@@ -112,10 +125,9 @@ export async function getRecommendations(
     } else if (room) {
       // Fallback: relevantní styly pro typ místnosti
       const relevantStyles = getRelevantStyles(room);
-      const maxStyleScore = Math.max(
-        ...relevantStyles.map(s => calculateStyleScore(product, s))
-      );
-      score += maxStyleScore * 0.7; // Trochu nižší váha než přímá shoda
+      const scores = relevantStyles.map(s => calculateStyleScore(product, s));
+      const maxStyleScore = scores.length > 0 ? Math.max(...scores) : 0;
+      score += maxStyleScore * 0.7; 
       if (maxStyleScore > 0) {
         reasons.push(`Místnost: ${Math.round(maxStyleScore * 0.7)}/70`);
       }
@@ -137,9 +149,9 @@ export async function getRecommendations(
       reasons.push(`Velikost: +${furnishingScore}`);
     }
     
-    // D) Cenová atraktivita (levnější = lepší při stejném skóre)
+    // D) Cenová atraktivita
     const priceRatio = 1 - (product.price_czk / budget);
-    const priceBonus = Math.max(0, priceRatio * 10); // Max +10 bodů
+    const priceBonus = Math.max(0, priceRatio * 10); 
     score += priceBonus;
     
     return {
@@ -167,7 +179,9 @@ export async function getRecommendations(
     const scoreMap = new Map<string, number>();
     scoredProducts.forEach(sp => scoreMap.set(sp.product.id, sp.score));
     
-    bombs = identifyBombs(allProducts, budget, finalMaxBombs, scoreMap);
+    // Pokud máme allProducts, použijeme je, jinak zkusíme kandidáty
+    const bombPool = (allProducts && allProducts.length > 0) ? allProducts : candidateProducts;
+    bombs = identifyBombs(bombPool, budget, finalMaxBombs, scoreMap);
   }
   
   return {
@@ -176,7 +190,7 @@ export async function getRecommendations(
     total: topProducts.length + bombs.length,
     config,
     debug: {
-      scoredProducts: scoredProducts.slice(0, 20), // Top 20 pro debugging
+      scoredProducts: scoredProducts.slice(0, 20),
       bombThreshold
     }
   };
@@ -186,7 +200,7 @@ export async function getRecommendations(
  * Helper pro rychlé doporučení bez AI kontextu (Discovery Mode)
  */
 export async function getDiscoveryRecommendations(
-  allProducts: Product[],
+  allProducts: Product[] | null,
   room: string,
   budget: number,
   limit: number = 50
@@ -195,7 +209,7 @@ export async function getDiscoveryRecommendations(
     room,
     budget,
     limit,
-    enableBombs: false // V discovery módu nezobrazujeme bomby
+    enableBombs: false 
   });
 }
 
@@ -203,7 +217,7 @@ export async function getDiscoveryRecommendations(
  * Helper pro doporučení s AI kontextem (po analýze)
  */
 export async function getAIRecommendations(
-  allProducts: Product[],
+  allProducts: Product[] | null,
   config: RecommendationConfig
 ): Promise<RecommendationResult> {
   // Prioritizujeme AI doporučení podle velikosti
@@ -216,7 +230,7 @@ export async function getAIRecommendations(
   
   return getRecommendations(allProducts, {
     ...config,
-    enableBombs: true, // Po analýze zobrazujeme bomby
-    includeNearBudget: true // Povolit produkty lehce nad rozpočtem
+    enableBombs: true, 
+    includeNearBudget: true 
   });
 }

@@ -16,23 +16,39 @@ export async function POST(req: NextRequest) {
       limit = 40 
     } = body;
 
-    console.log(`API: Recommending products for ${room} (${style}), budget: ${budget}, furnishing: ${furnishing_level}%, focus: ${focus_area}`);
+    // Validace budgetu - musí být > 0
+    const validBudget = budget && budget > 0 ? budget : 150000;
+    console.log(`API: Recommending products for ${room} (${style}), budget: ${validBudget}, furnishing: ${furnishing_level}%, focus: ${focus_area}`);
 
-    // 1. Načtení všech produktů z databáze
-    const query = `
-      SELECT 
-        p.id, p.name, p.brand, p.price_czk, p.image_url, p.affiliate_url,
-        p.style_tags, p.material, p.color, p.category,
-        p.dimensions_cm
-      FROM products p
-      WHERE 1=1
-      ${budget ? 'AND p.price_czk <= ? * 1.3' : ''} 
-    `;
-    
-    const params: any[] = [];
-    if (budget) params.push(budget); // Načteme i produkty lehce nad rozpočtem pro bomby
-    
-    const dbProducts = await db.all(query, params) as any[];
+    // 1. Načtení produktů z databáze (Optimalizováno: v AI módu načítáme méně)
+    let dbProducts: any[] = [];
+    const isAIMode = recommendations.length > 0;
+
+    if (isAIMode) {
+      // V AI módu engine využívá FTS pro hlavní výsledky.
+      // Stáhneme jen malý vzorek pro "bomby" (upsell) lehce nad rozpočtem.
+      const bombQuery = `
+        SELECT p.* FROM products p 
+        WHERE p.price_czk > ? AND p.price_czk <= ? 
+        LIMIT 50
+      `;
+      dbProducts = await db.all(bombQuery, [validBudget, validBudget * 1.25]);
+      console.log(`API: AI Mode - Prefetched ${dbProducts.length} bomb candidates`);
+    } else {
+      // Discovery Mode - načteme produkty pouze pro daný typ místnosti
+      // To dramaticky snižuje počet scanovaných řádků
+      const categories = ['sofa', 'table', 'chair', 'lamp', 'shelving']; // Default
+      // TODO: Mapování room -> categories by mohlo být v SQL
+      const query = `
+        SELECT p.* FROM products p
+        WHERE p.price_czk <= ?
+        AND (p.category IS NULL OR p.category IN ('sofa', 'table', 'chair', 'lamp', 'bed', 'wardrobe', 'desk'))
+        ORDER BY p.price_czk ASC
+        LIMIT 500
+      `;
+      dbProducts = await db.all(query, [validBudget]);
+      console.log(`API: Discovery Mode - Loaded ${dbProducts.length} category-filtered products`);
+    }
     
     // 2. Parsování JSON polí
     const allProducts: Product[] = dbProducts.map((p: any) => {
@@ -65,18 +81,22 @@ export async function POST(req: NextRequest) {
       result = await getAIRecommendations(allProducts, {
         style,
         room,
-        budget,
+        budget: validBudget,
         recommendations,
         contextual_queries,
         furnishing_level,
         focus_area,
         limit,
         enableBombs: true,
-        maxBombs: budget < 30000 ? 1 : 2 // Budget users: 1 bomba, ostatní: 2
+        maxBombs: validBudget < 30000 ? 1 : 2 // Budget users: 1 bomba, ostatní: 2
       });
     } else {
       // Discovery Mode - bez AI
-      result = await getDiscoveryRecommendations(allProducts, room || 'living', budget, limit);
+      result = await getDiscoveryRecommendations(allProducts, room || 'living', validBudget, limit);
+    }
+
+    if (result.products.length === 0 && recommendations.length > 0) {
+      console.warn(`API: ZERO products found for ${recommendations.length} AI recommendations in session ${body.sessionId || 'unknown'}`);
     }
 
     console.log(`API: Recommendation engine returned ${result.products.length} products + ${result.bombs.length} bombs`);

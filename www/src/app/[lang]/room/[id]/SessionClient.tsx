@@ -19,7 +19,7 @@ export default function SessionClient({ dict, lang, sessionId }: SessionClientPr
   useEffect(() => {
     async function loadSession() {
       try {
-        const response = await fetch(`/api/session/${sessionId}`);
+        const response = await fetch(`/api/room/${sessionId}`);
         
         if (!response.ok) {
           if (response.status === 404) {

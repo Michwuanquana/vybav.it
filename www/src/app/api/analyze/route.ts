@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { geminiFlash } from "@/lib/gemini-client";
 import { ANALYSIS_PROMPT } from "@/lib/prompts/analysis";
 import fs from "fs/promises";
+import * as fs_sync from "fs";
 import path from "path";
 
 export async function POST(req: NextRequest) {
@@ -21,8 +22,8 @@ export async function POST(req: NextRequest) {
     const session = await db.get('SELECT * FROM sessions WHERE id = ?', [sessionId]) as any;
 
     if (!session) {
-      console.error("API: Session not found in DB");
-      return NextResponse.json({ error: "Session nebyla nalezena" }, { status: 404 });
+      console.error("API: Session not found in DB, sessionId:", sessionId);
+      return NextResponse.json({ error: "Session nebyla nalezena" }, { status: 400 });
     }
 
     // 1.5 Kontrola, zda už analýza existuje v DB
@@ -41,9 +42,26 @@ export async function POST(req: NextRequest) {
     const imageReadStart = Date.now();
     let imageBuffer: Buffer;
     if (session.original_image_url.startsWith('/')) {
-      // Lokální soubor - odstraníme /public/ prefix a použijeme správnou cestu
-      const cleanUrl = session.original_image_url.replace(/^\/public\//, '');
-      const filePath = path.join(process.cwd(), 'public', cleanUrl);
+      // Mapování URL na fyzickou cestu
+      let relativePath = session.original_image_url;
+      
+      // Podpora pro nové /api/uploads/ i staré /uploads/
+      if (relativePath.startsWith('/api/uploads/')) {
+        relativePath = relativePath.replace('/api/uploads/', '/uploads/');
+      }
+      
+      // Odstranění prefixu /public/, pokud tam je (pro zpětnou kompatibilitu)
+      const cleanUrl = relativePath.replace(/^\/public\//, '');
+      
+      // Detekce správného rootu pro public složku (Next.js standalone vs dev)
+      let publicDir = path.join(process.cwd(), 'public');
+      if (process.cwd().endsWith('/www')) {
+        publicDir = path.join(process.cwd(), 'public');
+      } else if (fs_sync.existsSync(path.join(process.cwd(), 'www', 'public'))) {
+        publicDir = path.join(process.cwd(), 'www', 'public');
+      }
+      
+      const filePath = path.join(publicDir, cleanUrl);
       console.log("API: Reading local file", filePath);
       
       try {

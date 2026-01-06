@@ -82,8 +82,6 @@ interface ResultsViewProps {
   analysis?: AnalysisResult;
   products: Product[];
   onBack: () => void;
-  onGenerateFullDesign?: () => void;
-  isGenerating?: boolean;
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
   activeCategory?: string | null;
@@ -98,8 +96,6 @@ export function ResultsView({
   analysis, 
   products, 
   onBack,
-  onGenerateFullDesign,
-  isGenerating: externalIsGenerating,
   onLoadMore,
   isLoadingMore,
   activeCategory,
@@ -114,8 +110,6 @@ export function ResultsView({
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-
-  const activeIsGenerating = externalIsGenerating;
 
   const handleFeedback = async (type: 'up' | 'down', comment?: string) => {
     if (isSubmittingFeedback) return;
@@ -178,10 +172,16 @@ export function ResultsView({
     };
     const searchKw = translations[kw] || kw;
 
-    return products.find(p => 
+    const match = products.find(p => 
       p.name.toLowerCase().includes(searchKw) || 
       p.name.toLowerCase().includes(kw)
-    ) || products[0];
+    );
+
+    if (!match && products.length > 0) {
+      console.log(`ResultsView: No specific match for "${itemKeyword}". Total products: ${products.length}`);
+    }
+
+    return match || null;
   };
 
   // Rozdělení produktů na přímé shody a ostatní
@@ -518,27 +518,6 @@ export function ResultsView({
             </Button>
           )}
         </div>
-      </div>
-
-      {/* Sticky CTA Button */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-sand via-sand/95 to-transparent pt-8">
-        <Button 
-          className="w-full bg-terracotta hover:bg-terracotta/90 text-white font-bold py-6 rounded-2xl shadow-xl shadow-terracotta/20 flex items-center justify-center gap-3 group transition-all hover:scale-[1.02] active:scale-[0.98]"
-          onClick={onGenerateFullDesign}
-          disabled={activeIsGenerating || selectedProductIds.size === 0}
-        >
-          {activeIsGenerating ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <>
-              <Wand className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-              <span className="text-base">{dict.results.generate_design}</span>
-            </>
-          )}
-        </Button>
-        {selectedProductIds.size === 0 && (
-          <p className="text-[10px] text-center text-charcoal/40 mt-2">{dict.results.select_at_least_one}</p>
-        )}
       </div>
 
       {/* Feedback Dialog */}

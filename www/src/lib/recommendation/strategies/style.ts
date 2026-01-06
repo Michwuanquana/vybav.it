@@ -86,10 +86,12 @@ export function calculateRecommendationScore(
     score += styleScore * 0.3; // 30% váha
     
     // Barevná shoda (fuzzy)
-    const colorLower = rec.suggested_color.toLowerCase();
-    const productColorLower = product.color.toLowerCase();
-    if (productColorLower.includes(colorLower) || colorLower.includes(productColorLower)) {
-      score += 20;
+    if (rec.suggested_color && product.color) {
+      const colorLower = rec.suggested_color.toLowerCase();
+      const productColorLower = product.color.toLowerCase();
+      if (productColorLower.includes(colorLower) || colorLower.includes(productColorLower)) {
+        score += 20;
+      }
     }
     
     // Bonus za prioritu (priority 1 = +10, priority 2 = +5, atd.)
@@ -126,4 +128,19 @@ export function getRelevantStyles(roomType: string): string[] {
   };
   
   return roomStyleMap[roomType] || roomStyleMap['other'];
+}
+
+/**
+ * Získá seznam relevantních kategorií produktů pro daný typ místnosti
+ */
+export function getRelevantCategories(roomType: string): string[] {
+  const roomCategoryMap: Record<string, string[]> = {
+    'living': ['sofa', 'table', 'coffee_table', 'shelving', 'rug', 'lamp', 'mirror', 'wall_art', 'picture_frame'],
+    'bedroom': ['bed', 'nightstand', 'wardrobe', 'mirror', 'lamp', 'rug', 'picture_frame', 'wall_art'],
+    'kids': ['bed', 'wardrobe', 'shelving', 'toy_storage', 'lamp', 'rug', 'wall_art', 'poster'],
+    'office': ['desk', 'chair', 'shelving', 'lamp', 'storage', 'rug', 'wall_art', 'picture_frame'],
+    'other': ['sofa', 'table', 'chair', 'lamp', 'shelving', 'rug', 'picture_frame']
+  };
+  
+  return roomCategoryMap[roomType] || roomCategoryMap['other'];
 }
