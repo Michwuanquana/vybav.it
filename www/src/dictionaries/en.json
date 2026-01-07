@@ -104,6 +104,12 @@
     "bedroom": "Bedroom",
     "kids": "Kids Room",
     "office": "Office",
+    "student": "Student Room",
+    "dining": "Dining Room",
+    "kitchen": "Kitchen",
+    "hallway": "Hallway",
+    "bathroom": "Bathroom",
+    "terrace": "Terrace",
     "other": "Other"
   },
   "studio": {

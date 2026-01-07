@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -142,6 +142,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
   const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [fixedCategory, setFixedCategory] = useState<string | null>(null);
 
   // Product popup state
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -150,12 +151,15 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
 
   // Preferences state
   const [roomType, setRoomType] = useState<string | null>(initialSessionData?.room_type || "living");
+  const [userHasSelectedRoomType, setUserHasSelectedRoomType] = useState(false);
+  const [roomTypeProbabilities, setRoomTypeProbabilities] = useState<Record<string, number> | null>(null);
   const [colors, setColors] = useState({ primary: "#F0E8D9", secondary: "#7C8F80" });
   const [budget, setBudget] = useState(() => {
     const sessionBudget = initialSessionData?.budget;
     return (sessionBudget && sessionBudget > 0) ? sessionBudget : 45000;
   });
-  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+  const [selections, setSelections] = useState<Record<number, any>>({});
+  const selectedProducts = Object.values(selections);
   const totalSpent = selectedProducts.reduce((sum, p) => sum + (p.price_czk || 0), 0);
   const [showAllMarkers, setShowAllMarkers] = useState(false);
   const [isEmptyRoom, setIsEmptyRoom] = useState(false);
@@ -165,6 +169,13 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoRetryCount, setDemoRetryCount] = useState(0);
   const MAX_DEMO_RETRIES = 3;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollContainerRef.current && (fixedCategory || activeCategory)) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [fixedCategory, activeCategory]);
 
   const findProductForRecommendation = (itemKeyword: string) => {
     if (!recommendedProducts || recommendedProducts.length === 0) return null;
@@ -208,9 +219,9 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
     return null;
   };
 
-  const handleMarkerClick = (product: any, recommendation: any) => {
+  const handleMarkerClick = (product: any, recommendation: any, index: number) => {
     setSelectedProduct(product);
-    setSelectedRecommendation(recommendation);
+    setSelectedRecommendation({ ...recommendation, index });
   };
 
   // Note: Full design generation removed - will be implemented later
@@ -396,6 +407,22 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
       console.log("Recommendations with coordinates:", analysis.recommendations?.filter((r: any) => r.placement_coordinates));
       setAnalysisResult(analysis);
       
+      // Auto-switch room type based on AI prediction if user hasn't interacted yet
+      if (analysis.room_type_probabilities) {
+        setRoomTypeProbabilities(analysis.room_type_probabilities);
+        
+        if (!userHasSelectedRoomType) {
+          // Find the type with highest probability
+          const predicted = Object.entries(analysis.room_type_probabilities)
+            .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
+          
+          if (predicted && predicted !== roomType) {
+            console.log(`UI: Auto-switching room type to predicted: ${predicted}`);
+            setRoomType(predicted);
+          }
+        }
+      }
+      
       // Reset demo retry count on success
       setDemoRetryCount(0);
 
@@ -530,23 +557,19 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
               <div className="relative shadow-2xl rounded-lg overflow-hidden group/image-container">
                 {/* Floating Buttons - Reload & Vyčistit */}
                 {analysisResult && (
-                  <div className="absolute top-4 left-4 flex gap-2 z-50">
+                  <div className="absolute top-4 right-4 flex gap-2 z-50">
                     {/* Reload - spustí novou analýzu */}
                     <button
                       onClick={handleReset}
-                      className="group/reload bg-white/90 hover:bg-white text-charcoal p-3 rounded-full shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+                      className="group/reload bg-white/90 hover:bg-white text-charcoal p-3 rounded-xl shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
                       title="Nahrát znovu"
                     >
                       <RotateCcw className="w-5 h-5" />
                     </button>
-                  </div>
-                )}
-                {analysisResult && (
-                  <div className="absolute top-4 right-4 flex gap-2 z-50">
                     {/* Vyčistit - smaže všechno */}
                     <button
                       onClick={handleClearAll}
-                      className="group/clear bg-terracotta/90 hover:bg-terracotta text-white p-3 rounded-full shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+                      className="group/clear bg-terracotta/90 hover:bg-terracotta text-white p-3 rounded-xl shadow-lg backdrop-blur-md border border-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
                       title={dict.common.clear_all}
                     >
                       <X className="w-5 h-5" />
@@ -604,6 +627,7 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                           return null;
                         }
                         const product = findProductForRecommendation(rec.item);
+                        const isSelected = !!selections[i];
                         
                         // Hierarchie velikostí: hlavní nábytek je větší
                         const isMainFurniture = ["pohovka", "sofa", "stůl", "postel", "skříň"].some(kw => rec.item.toLowerCase().includes(kw));
@@ -624,22 +648,46 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                               left: `${rec.placement_coordinates.x / 10}%`, 
                               top: `${rec.placement_coordinates.y / 10}%` 
                             }}
-                            onMouseEnter={() => setActiveCategory(rec.item)}
-                            onMouseLeave={() => setActiveCategory(null)}
-                            onClick={() => product && handleMarkerClick(product, rec)}
+                            onMouseEnter={() => !fixedCategory && setActiveCategory(rec.item)}
+                            onMouseLeave={() => !fixedCategory && setActiveCategory(null)}
+                            onClick={() => {
+                              if (fixedCategory === rec.item) {
+                                setFixedCategory(null);
+                              } else {
+                                setFixedCategory(rec.item);
+                                setActiveCategory(rec.item);
+                              }
+                            }}
                           >
                             <div className="relative -translate-x-1/2 -translate-y-1/2">
+                              {/* Pulse effect for unselected items */}
+                              {!isSelected && (
+                                <div className={cn(
+                                  "absolute -inset-4 rounded-full transition-all duration-1000",
+                                  activeCategory === rec.item ? "animate-ping bg-terracotta/30" : "animate-pulse bg-white/20"
+                                )} />
+                              )}
+                              
                               <div className={cn(
-                                "absolute -inset-4 bg-white/20 rounded-full",
-                                activeCategory === rec.item ? "animate-ping bg-terracotta/30" : "bg-white/10"
-                              )} />
-                              <div className={cn(
-                                "relative text-white rounded-full border-2 border-white shadow-xl flex items-center justify-center transition-all duration-300",
+                                "relative rounded-full border-2 shadow-xl flex items-center justify-center transition-all duration-300",
                                 isMainFurniture ? "w-12 h-12" : "w-10 h-10",
-                                activeCategory === rec.item ? "bg-terracotta scale-125 rotate-12" : "bg-terracotta/80 hover:bg-terracotta"
+                                isSelected 
+                                  ? "bg-sage border-white text-white rotate-[360deg]" 
+                                  : (activeCategory === rec.item ? "bg-terracotta border-white text-white scale-110" : "bg-white/40 backdrop-blur-md border-white/60 text-charcoal/40 hover:bg-white/60 hover:text-charcoal/60")
                               )}>
-                                {React.createElement(getIconForItem(rec.item), { className: isMainFurniture ? "w-6 h-6" : "w-5 h-5" })}
+                                {isSelected ? (
+                                  <CheckCircle2 className={isMainFurniture ? "w-6 h-6" : "w-5 h-5"} />
+                                ) : (
+                                  React.createElement(getIconForItem(rec.item), { className: isMainFurniture ? "w-6 h-6" : "w-5 h-5" })
+                                )}
                               </div>
+                              
+                              {/* Selection Indicator Badge */}
+                              {isSelected && selections[i]?.image_url && (
+                                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-lg animate-in zoom-in duration-300">
+                                  <img src={selections[i].image_url} alt="" className="w-full h-full object-cover" />
+                                </div>
+                              )}
                               
                               {/* Tooltip - Inteligentní pozice: vlevo nebo vpravo podle pozice markeru */}
                               <div className={cn(
@@ -737,7 +785,10 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
       </div>
 
       {/* Right Section: Controls & Results (40% on PC, 55% on Mobile) */}
-      <div className="flex-1 bg-white/60 backdrop-blur-md overflow-y-auto border-l border-white/20">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 bg-white/60 backdrop-blur-md overflow-y-auto border-l border-white/20"
+      >
         <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
           {/* Settings Row - More compact */}
           <div className="flex flex-col xl:flex-row gap-6 pb-6 border-b border-stone-100 items-start xl:items-center justify-between">
@@ -764,8 +815,10 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
               </h2>
               <RoomTypeSelector 
                 selected={roomType} 
+                probabilities={roomTypeProbabilities}
                 onSelect={(val) => {
                   setRoomType(val);
+                  setUserHasSelectedRoomType(true);
                   setTimeout(handleUpdateProducts, 150);
                 }} 
                 dict={dict}
@@ -794,6 +847,26 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                 roomImageUrl={uploadedImage || ""}
                 analysis={analysisResult}
                 products={recommendedProducts}
+                selections={selections}
+                activeCategory={fixedCategory || activeCategory}
+                onClearFilter={() => {
+                  setFixedCategory(null);
+                  setActiveCategory(null);
+                }}
+                onSelectCategory={(cat) => {
+                  setFixedCategory(cat);
+                  setActiveCategory(cat);
+                }}
+                onToggleSelection={(index, product) => {
+                  const isSelected = !!selections[index];
+                  if (isSelected && selections[index].id === product.id) {
+                    const newSelections = { ...selections };
+                    delete newSelections[index];
+                    setSelections(newSelections);
+                  } else {
+                    setSelections({ ...selections, [index]: product });
+                  }
+                }}
                 onBack={() => {
                   setAnalysisResult(null);
                   setUploadedImage(null);
@@ -802,7 +875,6 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
                 }}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}
-                activeCategory={activeCategory}
                 budget={budget}
                 roomType={roomType}
                 dict={dict}
@@ -919,24 +991,29 @@ export default function HomeClient({ dict, lang, initialSessionId, initialSessio
               <div className="flex gap-2 pt-2">
                 <Button 
                   onClick={() => {
-                    const isInProject = selectedProducts.some(p => p.id === selectedProduct.id);
-                    if (isInProject) {
-                      setSelectedProducts(prev => prev.filter(p => p.id !== selectedProduct.id));
+                    const recIndex = selectedRecommendation?.index;
+                    if (recIndex === undefined) return;
+                    
+                    const isSelected = !!selections[recIndex];
+                    if (isSelected && selections[recIndex].id === selectedProduct.id) {
+                      const newSelections = { ...selections };
+                      delete newSelections[recIndex];
+                      setSelections(newSelections);
                     } else {
-                      setSelectedProducts(prev => [...prev, selectedProduct]);
+                      setSelections({ ...selections, [recIndex]: selectedProduct });
                     }
                   }}
                   className={cn(
                     "flex-1 h-12 rounded-xl border-2 transition-all duration-200",
-                    selectedProducts.some(p => p.id === selectedProduct.id) 
+                    selections[selectedRecommendation?.index]?.id === selectedProduct.id
                       ? "bg-sage text-white hover:bg-sage/90 border-sage" 
                       : "bg-sage/5 text-sage hover:bg-sage/10 border-sage/30 border-dashed"
                   )}
                 >
-                  {selectedProducts.some(p => p.id === selectedProduct.id) ? (
-                    <><CheckCircle2 className="w-4 h-4 mr-2" /> V projektu</>
+                  {selections[selectedRecommendation?.index]?.id === selectedProduct.id ? (
+                    <><CheckCircle2 className="w-4 h-4 mr-2" /> Vybráno</>
                   ) : (
-                    <><Plus className="w-4 h-4 mr-2" /> Do projektu</>
+                    <><Plus className="w-4 h-4 mr-2" /> Vybrat</>
                   )}
                 </Button>
 

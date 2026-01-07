@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import {
   Edit3,
   Layout,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  X,
+  Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StudioEditor } from "./StudioEditor";
@@ -33,6 +35,7 @@ interface Product {
   style_tags: string[];
   material: string;
   color: string;
+  category?: string;
 }
 
 interface AnalysisResult {
@@ -88,6 +91,10 @@ interface ResultsViewProps {
   budget?: number;
   roomType?: string | null;
   dict: any;
+  selections?: Record<number, any>;
+  onToggleSelection?: (recIndex: number, product: any) => void;
+  onClearFilter?: () => void;
+  onSelectCategory?: (category: string | null) => void;
 }
 
 export function ResultsView({ 
@@ -101,15 +108,26 @@ export function ResultsView({
   activeCategory,
   budget = 25000,
   roomType,
+  onToggleSelection,
+  onClearFilter,
+  onSelectCategory,
+  selections = {},
   dict
 }: ResultsViewProps) {
   const [showStudio, setShowStudio] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [feedbackSent, setFeedbackSent] = useState<'up' | 'down' | null>(null);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  // Get index of recommendation by active category
+  const activeRecIndex = analysis?.recommendations.findIndex(r => r.item === activeCategory);
+  const isCurrentCategorySelected = activeRecIndex !== undefined && activeRecIndex !== -1 && !!selections[activeRecIndex];
+  
+  const nextRec = analysis?.recommendations.find((r, idx) => 
+    !selections[idx] && r.item !== activeCategory
+  );
 
   const handleFeedback = async (type: 'up' | 'down', comment?: string) => {
     if (isSubmittingFeedback) return;
@@ -135,21 +153,38 @@ export function ResultsView({
     }
   };
 
+  const selectedProductIds = new Set(Object.values(selections).map(p => p.id));
+
   // Toggle product selection for budget calculation
-  const toggleProductSelection = (productId: string) => {
-    const newSelection = new Set(selectedProductIds);
-    if (newSelection.has(productId)) {
-      newSelection.delete(productId);
-    } else {
-      newSelection.add(productId);
+  const toggleProductSelection = (product: Product) => {
+    if (!onToggleSelection) return;
+    
+    // 1. Najít recIndex pro tento produkt
+    let recIndex = activeRecIndex !== undefined && activeRecIndex !== -1 ? activeRecIndex : -1;
+    
+    // 2. Pokud není aktivní kategorie, zkusíme najít první doporučení, kam by produkt mohl sedět
+    if (recIndex === -1 && analysis?.recommendations) {
+      recIndex = analysis.recommendations.findIndex(rec => {
+        const kw = rec.item.toLowerCase();
+        const productName = product.name.toLowerCase();
+        return productName.includes(kw) || 
+               (kw === 'pohovka' && productName.includes('sofa')) ||
+               (kw === 'sofa' && productName.includes('pohovka')) ||
+               (kw === 'stůl' && (productName.includes('stolek') || productName.includes('desk') || productName.includes('table'))) ||
+               (kw === 'židle' && (productName.includes('chair') || productName.includes('křeslo'))) ||
+               (kw === 'postel' && productName.includes('bed')) ||
+               (kw === 'lampa' && (productName.includes('lamp') || productName.includes('svítidlo'))) ||
+               (kw === 'koberec' && productName.includes('rug'));
+      });
     }
-    setSelectedProductIds(newSelection);
+
+    if (recIndex !== -1) {
+      onToggleSelection(recIndex, product);
+    }
   };
 
   // Calculate total price of selected products
-  const totalPrice = products
-    .filter(p => selectedProductIds.has(p.id))
-    .reduce((sum, p) => sum + p.price_czk, 0);
+  const totalPrice = Object.values(selections).reduce((sum, p) => sum + p.price_czk, 0);
 
   const budgetPercentage = Math.min(100, (totalPrice / budget) * 100);
 
@@ -199,24 +234,94 @@ export function ResultsView({
     
     if (activeCategory) {
       const kw = activeCategory.toLowerCase();
-      const translations: Record<string, string> = {
-        'sofa': 'pohovka',
-        'couch': 'pohovka',
-        'table': 'stůl',
-        'coffee table': 'stolek',
-        'chair': 'židle',
-        'bed': 'postel',
-        'desk': 'stůl',
-        'lamp': 'lampa',
-        'rug': 'koberec'
-      };
-      const searchKw = translations[kw] || kw;
       
-      // Pokud je aktivní kategorie, filtrujeme jen na relevantní
-      list = list.filter(p => 
-        p.name.toLowerCase().includes(searchKw) || 
-        p.name.toLowerCase().includes(kw)
-      );
+      // KROK 1: Mapování AI markers → DB categories (primární filtr)
+      const categoryMap: Record<string, string[]> = {
+        // Osvětlení
+        'stropní lampa': ['lamp', 'ceiling-light', 'pendant-light', 'chandelier'],
+        'lustr': ['lamp', 'chandelier'],
+        'stojací lampa': ['lamp', 'floor-lamp'],
+        'stolní lampa': ['lamp', 'table-lamp', 'desk-lamp'],
+        'nástěnné světlo': ['lamp', 'wall-light'],
+        'lampa': ['lamp'],
+        'lamp': ['lamp'],
+        'světlo': ['lamp'],
+        'osvětlení': ['lamp'],
+        
+        // Sedací nábytek
+        'pohovka': ['sofa', 'couch'],
+        'sofa': ['sofa', 'couch'],
+        'gauč': ['sofa', 'couch'],
+        'křeslo': ['armchair', 'chair'],
+        'židle': ['chair'],
+        'chair': ['chair'],
+        'armchair': ['armchair'],
+        
+        // Stoly
+        'stůl': ['table', 'desk', 'coffee-table'],
+        'stolek': ['table', 'coffee-table', 'side-table'],
+        'konferenční stolek': ['coffee-table', 'table'],
+        'coffee table': ['coffee-table', 'table'],
+        'jídelní stůl': ['dining-table', 'table'],
+        'psací stůl': ['desk', 'table'],
+        'desk': ['desk', 'table'],
+        'table': ['table'],
+        
+        // Lůžka
+        'postel': ['bed'],
+        'bed': ['bed'],
+        'matrace': ['bed', 'mattress'],
+        
+        // Úložné prostory
+        'police': ['shelving', 'shelf'],
+        'polička': ['shelving', 'shelf'],
+        'knihovna': ['bookshelf', 'shelving'],
+        'skříň': ['wardrobe', 'cabinet'],
+        'komoda': ['cabinet', 'drawer'],
+        'wardrobe': ['wardrobe'],
+        
+        // Dekorace
+        'koberec': ['rug', 'carpet'],
+        'rug': ['rug', 'carpet'],
+        'obraz': ['art', 'painting', 'frame'],
+        'zrcadlo': ['mirror'],
+        'váza': ['vase', 'decoration'],
+        'rostlina': ['plant', 'decoration'],
+        'květina': ['plant', 'decoration'],
+        'dekorace': ['decoration'],
+      };
+      
+      const dbCategories = categoryMap[kw] || [];
+      
+      // KROK 2: Filtrování podle DB category (pokud existuje mapování)
+      if (dbCategories.length > 0) {
+        list = list.filter(p => {
+          // Primární: category match
+          if (p.category && dbCategories.includes(p.category.toLowerCase())) {
+            return true;
+          }
+          
+          // Sekundární: název produktu obsahuje keyword
+          return p.name.toLowerCase().includes(kw);
+        });
+      } else {
+        // KROK 3: Fallback - fuzzy matching s tokenizací
+        const categoryWords = kw.split(/[\s-]+/).filter(w => w.length > 3);
+        
+        list = list.filter(p => {
+          const productName = p.name.toLowerCase();
+          const productWords = productName.split(/[\s-]+/);
+          
+          // Hledáme, zda některé slovo z kategorie matchuje slovo v produktu
+          return categoryWords.some(catWord => 
+            productWords.some(prodWord => 
+              prodWord.includes(catWord) || catWord.includes(prodWord)
+            )
+          ) || productName.includes(kw); // Nebo celý string jako fallback
+        });
+      }
+      
+      console.log(`[Filter] Category: "${kw}" → Found ${list.length} products (from ${products.length} total)`);
     }
 
     // Seskupení podle kategorií (pokud není aktivní filtr)
@@ -244,10 +349,42 @@ export function ResultsView({
     }
   };
 
+  const totalZones = analysis?.recommendations.length || 0;
+  const completedZones = Object.keys(selections).length;
+  const completionPercentage = totalZones > 0 ? (completedZones / totalZones) * 100 : 0;
+
   return (
     <div className="flex flex-col relative">
       <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex items-center justify-end pt-2">
+        <div className="flex items-center justify-between pt-2">
+          {totalZones > 0 && (
+            <div className="flex-1 mr-8">
+              <div className="flex justify-between items-center mb-1.5">
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">
+                  Vybavenost projektu: <span className={cn("transition-colors duration-500", completionPercentage === 100 ? "text-terracotta" : "text-sage")}>
+                    {completedZones}/{totalZones}
+                  </span>
+                </p>
+                <div className="flex items-center gap-2">
+                  {completionPercentage === 100 && (
+                    <span className="text-[10px] font-bold text-terracotta animate-pulse uppercase tracking-tighter">
+                      Vše hotovo!
+                    </span>
+                  )}
+                  <span className="text-[10px] font-bold text-sage">{Math.round(completionPercentage)}%</span>
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-sage/10 rounded-full overflow-hidden shadow-inner">
+                <div 
+                  className={cn(
+                    "h-full transition-all duration-1000 ease-out",
+                    completionPercentage === 100 ? "bg-terracotta" : "bg-sage"
+                  )} 
+                  style={{ width: `${completionPercentage}%` }} 
+                />
+              </div>
+            </div>
+          )}
           <Button variant="ghost" onClick={onBack} className="text-sage hover:text-sage/80 p-0 h-auto text-xs">
             <ArrowLeft className="w-3 h-3 mr-1.5" />
             {dict.common.back}
@@ -371,7 +508,53 @@ export function ResultsView({
 
           {/* Katalog produktů */}
           <div className="space-y-6">
-            {processedProducts.flat.length === 0 ? (
+            {activeCategory && (
+              <div className="bg-sage/5 border border-sage/10 rounded-2xl p-4 flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-sage/10 rounded-full flex items-center justify-center">
+                    {activeCategory && React.createElement(Wand, { className: "w-4 h-4 text-sage" })}
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest leading-none">Průzkum zóny</h3>
+                    <p className="text-sm font-bold text-charcoal">{activeCategory}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {onClearFilter && (
+                    <Button variant="ghost" size="sm" onClick={onClearFilter} className="h-8 px-3 text-xs text-sage hover:bg-sage/10 rounded-full">
+                      <X className="w-3.5 h-3.5 mr-1.5" />
+                      Zrušit filtr
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeCategory && isCurrentCategorySelected && nextRec && (
+              <div className="bg-terracotta/5 border border-terracotta/10 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-right-4 duration-500">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-terracotta/10 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4 text-terracotta" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-terracotta uppercase tracking-[0.15em] leading-none mb-1">Skvělá volba!</p>
+                    <p className="text-xs font-medium text-charcoal/60">Co dál? Zkuste <span className="font-bold text-charcoal">{nextRec.item}</span></p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    if (onSelectCategory && nextRec) {
+                      onSelectCategory(nextRec.item);
+                    }
+                  }}
+                  className="bg-terracotta hover:bg-terracotta/90 text-white rounded-full px-4 text-xs h-8"
+                >
+                  Pokračovat
+                </Button>
+              </div>
+            )}
+            {products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 bg-white/40 backdrop-blur-sm rounded-3xl border border-dashed border-sage/20">
                   <div className="w-12 h-12 bg-sage/5 rounded-full flex items-center justify-center shadow-sm">
                     <Wand className="w-6 h-6 text-sage/30" />
@@ -401,6 +584,11 @@ export function ResultsView({
                         (activeCategory.toLowerCase() === 'sofa' && product.name.toLowerCase().includes('pohovka')) ||
                         (activeCategory.toLowerCase() === 'table' && product.name.toLowerCase().includes('stůl'))
                       );
+                      
+                      const canFitBudget = (totalPrice - (selections[activeRecIndex || -1]?.price_czk || 0) + product.price_czk) <= budget;
+
+                      const currentZoneSelection = activeRecIndex !== undefined && activeRecIndex !== -1 ? selections[activeRecIndex] : null;
+                      const isBetterPrice = currentZoneSelection && product.price_czk < currentZoneSelection.price_czk * 0.85;
 
                       return (
                         <Card key={product.id} className={cn(
@@ -417,17 +605,33 @@ export function ResultsView({
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                               />
                               <button 
-                                onClick={() => toggleProductSelection(product.id)}
+                                onClick={() => toggleProductSelection(product)}
                                 className={cn(
-                                  "absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center transition-all",
-                                  isSelected ? "bg-sage text-white" : "bg-white/80 text-charcoal/20 hover:text-sage"
+                                  "absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm z-20",
+                                  isSelected ? "bg-sage text-white scale-110" : "bg-white/90 text-charcoal/20 hover:text-sage hover:scale-110"
                                 )}
                               >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {isSelected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                               </button>
-                              {isHovered && (
+                              {isHovered && !isSelected && (
                                 <div className="absolute inset-0 bg-terracotta/10 flex items-center justify-center pointer-events-none">
-                                  <Wand className="w-6 h-6 text-terracotta animate-pulse" />
+                                  <div className="bg-white/90 px-2 py-1 rounded-full shadow-sm flex items-center gap-1 scale-75">
+                                    <Wand className="w-3 h-3 text-terracotta" />
+                                    <span className="text-[8px] font-bold text-terracotta uppercase tracking-tighter">
+                                      {isCurrentCategorySelected ? "Nahradit" : "Vybrat"}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              {isBetterPrice && !isSelected && (
+                                <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-terracotta text-[7px] text-white font-bold rounded-full shadow-sm z-10 animate-in fade-in zoom-in duration-300 flex items-center gap-1">
+                                  <div className="w-1 h-1 bg-white rounded-full animate-ping" />
+                                  Výhodnější
+                                </div>
+                              )}
+                              {canFitBudget && !isSelected && !isBetterPrice && (
+                                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-sage/80 backdrop-blur-sm text-[7px] text-white font-bold rounded uppercase tracking-tighter">
+                                  V rozpočtu
                                 </div>
                               )}
                             </div>
@@ -439,19 +643,33 @@ export function ResultsView({
                                   </h4>
                                   <p className="text-[9px] text-charcoal/40 font-medium uppercase">{product.brand}</p>
                                 </div>
-                                <span className="text-xs font-bold text-sage whitespace-nowrap">
+                                <span className={cn(
+                                  "text-xs font-bold whitespace-nowrap",
+                                  canFitBudget ? "text-sage" : "text-terracotta"
+                                )}>
                                   {product.price_czk.toLocaleString('cs-CZ')} Kč
                                 </span>
                               </div>
                               
-                              <div className="flex gap-1.5">
+                              <div className="flex gap-1.5 align-center">
+                                <Button 
+                                  variant="ghost"
+                                  size="sm" 
+                                  onClick={() => toggleProductSelection(product)}
+                                  className={cn(
+                                    "h-6 rounded-full px-3 text-[9px] flex-1 border border-sage/20",
+                                    isSelected ? "bg-sage/10 text-sage border-sage" : "text-sage hover:bg-sage/5"
+                                  )}
+                                >
+                                  {isSelected ? "Odebrat" : (isCurrentCategorySelected ? "Nahradit" : "Vybrat")}
+                                </Button>
                                 <Button size="sm" className={cn(
-                                  "h-6 rounded-full px-4 text-[9px] flex-1",
-                                  isHovered ? "bg-terracotta hover:bg-terracotta/90" : "bg-sage hover:bg-sage/90"
+                                  "h-6 rounded-full px-3 text-[9px] flex-1",
+                                  isHovered ? "bg-terracotta hover:bg-terracotta/90" : "bg-charcoal/5 text-charcoal/40 hover:bg-charcoal/10"
                                 )} asChild>
                                   <a href={product.affiliate_url} target="_blank" rel="noopener noreferrer">
-                                    <ShoppingCart className="w-2.5 h-2.5 mr-1.5" />
-                                    {dict.results.buy}
+                                    <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                                    Web
                                   </a>
                                 </Button>
                               </div>

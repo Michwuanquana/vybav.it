@@ -1,3 +1,38 @@
+## [2026-01-07] - Phase B: Selection Logic & Visual Polish (Zero Friction)
+
+### Změna
+- **Smart Room Detection & Auto-switch:** Po analýze fotky AI nyní vrací pravděpodobnosti pro různé typy pokojů. Pokud uživatel pokoj nevybral ručně, systém automaticky přepne na nejpravděpodobnější typ.
+- **Rozšířené kategorie:** Přidány nové typy místností (studentský pokoj, jídelna, kuchyně, předsíň, koupelna, terasa).
+- **UX - Scrollovatelný selektor:**
+    - Implementován horizontální swipe s snap-center efektem pro mobilní zařízení.
+    - Přidána podpora pro horizontální scrollování kolečkem myši na PC.
+    - Vizualizovány navigační šipky pro PC při detekci možnosti scrollu.
+    - Kliknutí na kategorii automaticky vycentruje daný prvek v selektoru.
+    - Přidány interaktivní nápovědy (hints) "Swipe" / "Scroll" pro nové uživatele.
+- **Dynamické řazení:** Selekce typu pokoje se po analýze seřadí sestupně podle pravděpodobnosti shody. U typů s pravděpodobností > 15 % se zobrazuje badge s procentuálním vyjádřením.
+- **Seamless Replacement:** Výběr nového produktu v zóně nyní automaticky nahradí předchozí. Není nutné nejprve produkt odebírat.
+- **Project Progress Bar:** Přidán vizuální ukazatel dokončenosti projektu (0-100 %) v hlavičce sidebaru. Bar mění barvu na terracottu a zobrazuje "Vše hotovo!" při 100 %.
+- **Auto-scroll:** Při změně aktivní zóny (kliknutí na marker nebo tlačítko "Pokračovat") se sidebar automaticky vyroluje nahoru na začátek katalogu.
+- **Smart Labels:** Přidány štítky "Výhodnější" pro produkty s lepší cenou než stávající výběr a "V rozpočtu" pro kousky, které se vejdou do zbývajícího limitu.
+- **Rozšířená shoda:** Vylepšena logika detekce kategorií při výběru z obecného katalogu (přidány synonymy jako "svítidlo", "stolek" atd.).
+
+---
+
+## [2026-01-06] - Implementace Guided Flow (Fáze A)
+
+### Změna
+- **HomeClient:** 
+  - Refaktoring sledování výběru: z `selectedProducts` (pole) na `selections` (objekt mapující index doporučení na produkt). To umožňuje přesné sledování, která zóna je již "vyřešena".
+  - Vizuální vylepšení markerů: neutrální kroužky (#F0E8D9) s pulzující animací pro nevybrané zóny.
+  - Interaktivita: Kliknutí na marker automaticky přefiltruje sidebar na danou kategorii (např. "Pohovka") a "zamkne" ho.
+  - Náhledy: Po výběru konkrétního kousku se v markeru na fotce zobrazí náhled produktu s checkmarkem.
+- **ResultsView:**
+  - Přidána sekce "Průzkum zóny" s informací o aktivním filtru a možností jej zrušit.
+  - Implementována logika "Co dál?" — po výběru produktu systém inteligentně navrhne další prázdnou zónu k řešení.
+  - Oprava duplicitních klíčů a propojování indexů mezi AI analýzou a UI.
+
+---
+
 ## [2026-01-06] - Sloučení rozpočtu se sliderem + Progress Bar
 
 ### Změna

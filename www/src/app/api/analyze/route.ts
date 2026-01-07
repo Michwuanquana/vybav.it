@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
     if (!process.env.GEMINI_API_KEY) {
       console.warn("GEMINI_API_KEY chybí, vracím mock data");
       analysisJson = {
-        room_type: session.room_type || "living_room",
+        room_type: session.room_type || "living",
+        room_type_probabilities: { [session.room_type || "living"]: 1.0 },
         detected_style: "scandinavian",
         color_palette: {
           primary: "#F0E8D9",
@@ -151,6 +152,46 @@ export async function POST(req: NextRequest) {
           throw new Error("No JSON found in Gemini response");
         }
         analysisJson = JSON.parse(jsonMatch[0]);
+
+        // Map room type and probabilities to frontend format
+        const ROOM_TYPE_MAP: Record<string, string> = {
+          "living_room": "living",
+          "bedroom": "bedroom",
+          "office": "office",
+          "dining_room": "dining",
+          "kids_room": "kids",
+          "student_room": "student",
+          "kitchen": "kitchen",
+          "hallway": "hallway",
+          "bathroom": "bathroom",
+          "terrace": "terrace",
+          "other": "other"
+        };
+
+        const mappedType = ROOM_TYPE_MAP[analysisJson.room_type] || "other";
+        
+        // Ensure the result has the mapped room_type
+        analysisJson.room_type = mappedType;
+
+        // Ensure room_type_probabilities exists and uses frontend keys
+        const rawProbs = analysisJson.room_type_probabilities || {};
+        const mappedProbs: Record<string, number> = {};
+        
+        // If Gemini followed the prompt and used frontend keys directly in probabilities
+        // but used long names in room_type, we need to be robust.
+        // We'll trust the keys if they exist in our ROOM_TYPES, otherwise map them.
+        Object.entries(rawProbs).forEach(([key, value]) => {
+          const mappedKey = ROOM_TYPE_MAP[key] || key;
+          mappedProbs[mappedKey] = value as number;
+        });
+
+        // Fallback if no probabilities were returned
+        if (Object.keys(mappedProbs).length === 0) {
+          mappedProbs[mappedType] = 1.0;
+        }
+        
+        analysisJson.room_type_probabilities = mappedProbs;
+
       } catch (parseError: any) {
         console.error("API: Failed to parse Gemini response:", responseText);
         throw new Error(`Chyba při zpracování odpovědi od AI: ${parseError.message}`);

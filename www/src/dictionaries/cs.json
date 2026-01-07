@@ -104,6 +104,12 @@
     "bedroom": "Ložnice",
     "kids": "Dětský pokojíček",
     "office": "Pracovna",
+    "student": "Studentský pokoj",
+    "dining": "Jídelna",
+    "kitchen": "Kuchyně",
+    "hallway": "Předsíň",
+    "bathroom": "Koupelna",
+    "terrace": "Terasa",
     "other": "Jiné"
   },
   "studio": {
