@@ -10,6 +10,7 @@
     - Kliknutí na kategorii automaticky vycentruje daný prvek v selektoru.
     - Přidány interaktivní nápovědy (hints) "Swipe" / "Scroll" pro nové uživatele.
 - **Dynamické řazení:** Selekce typu pokoje se po analýze seřadí sestupně podle pravděpodobnosti shody. U typů s pravděpodobností > 15 % se zobrazuje badge s procentuálním vyjádřením.
+- **Nasazení:** Úspěšný build a deploy na dev server (`vybaveno.yrx.cz`). Ověřena integrita SQLite databáze.
 - **Seamless Replacement:** Výběr nového produktu v zóně nyní automaticky nahradí předchozí. Není nutné nejprve produkt odebírat.
 - **Project Progress Bar:** Přidán vizuální ukazatel dokončenosti projektu (0-100 %) v hlavičce sidebaru. Bar mění barvu na terracottu a zobrazuje "Vše hotovo!" při 100 %.
 - **Auto-scroll:** Při změně aktivní zóny (kliknutí na marker nebo tlačítko "Pokračovat") se sidebar automaticky vyroluje nahoru na začátek katalogu.
